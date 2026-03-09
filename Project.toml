@@ -1,4 +1,4 @@
-name = "Operator_Spliting_Optimal_Control"
+name = "OptimalControl_OperatorSplitting"
 uuid = "88d56cb8-5e55-49a5-b0f9-438308201938"
 version = "0.1.0"
 authors = ["Basile <145753507+Basile-Mouret@users.noreply.github.com>"]
