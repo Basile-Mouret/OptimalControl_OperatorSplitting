@@ -1,0 +1,16 @@
+name = "Operator_Spliting_Optimal_Control"
+uuid = "88d56cb8-5e55-49a5-b0f9-438308201938"
+version = "0.1.0"
+authors = ["Basile <145753507+Basile-Mouret@users.noreply.github.com>"]
+
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+BenchmarkTools = "1.6.3"
+LinearAlgebra = "1.12.0"
+Revise = "3.13.2"
+Test = "1.11.0"

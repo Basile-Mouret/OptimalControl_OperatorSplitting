@@ -1,0 +1,11 @@
+# Editor and OS files
+.vscode/
+.DS_Store
+*.swp
+
+# Ignore data and logs, but keep the folders
+data/*
+!data/.gitkeep
+logs/*
+!logs/.gitkeep
+
