@@ -1,3 +1,3 @@
-using Operator_Spliting_Optimal_Control
+using OptimalControl_OperatorSplitting
 
 greet()
