@@ -1,12 +1,62 @@
 _stage_matrix(data::AbstractMatrix, _) = data
 _stage_matrix(data::AbstractArray{<:Any,3}, stage) = @view data[:, :, stage]
 
-_rhs_top(cache::solver_cache) = reshape(view(cache.rhs, 1:cache.dim_w), cache.data.n + cache.data.m, cache.data.T + 1)
-_sol_top(cache::solver_cache) = reshape(view(cache.sol, 1:cache.dim_w), cache.data.n + cache.data.m, cache.data.T + 1)
-
 _stacked_norm(A, B) = hypot(norm(A), norm(B))
 
 _elapsed_ms(start_ns) = (time_ns() - start_ns) / 1e6
+
+function _append_block!(rows, cols, vals, block, row0, col0, scale)
+    @inbounds for j in 1:size(block, 2), i in 1:size(block, 1)
+        value = scale * block[i, j]
+        iszero(value) && continue
+        push!(rows, row0 + i - 1)
+        push!(cols, col0 + j - 1)
+        push!(vals, value)
+    end
+
+    return nothing
+end
+
+function _append_symmetric_lower!(rows, cols, vals, block, start, diag_shift)
+    @inbounds for j in 1:size(block, 2)
+        for i in j:size(block, 1)
+            value = block[i, j]
+            if i == j
+                value += diag_shift
+            end
+            iszero(value) && continue
+            push!(rows, start + i - 1)
+            push!(cols, start + j - 1)
+            push!(vals, value)
+        end
+    end
+
+    return nothing
+end
+
+function _append_transpose_block!(rows, cols, vals, block, row0, col0)
+    @inbounds for j in 1:size(block, 1), i in 1:size(block, 2)
+        value = block[j, i]
+        iszero(value) && continue
+        push!(rows, row0 + i - 1)
+        push!(cols, col0 + j - 1)
+        push!(vals, value)
+    end
+
+    return nothing
+end
+
+function _append_diagonal_block!(rows, cols, vals, row0, col0, len, value)
+    iszero(value) && return nothing
+
+    @inbounds for i in 1:len
+        push!(rows, row0 + i - 1)
+        push!(cols, col0 + i - 1)
+        push!(vals, value)
+    end
+
+    return nothing
+end
 
 function _convergence_metrics!(data::all_data, vars::prob_vars, cache::solver_cache)
     tol_scale = sqrt((data.T + 1) * (data.n + data.m))
@@ -28,44 +78,54 @@ function _convergence_metrics!(data::all_data, vars::prob_vars, cache::solver_ca
     return r_norm, s_norm, eps_pri, eps_dual
 end
 
-function _assemble_E(data::all_data)
-    blocks = Vector{SparseMatrixCSC{eltype(data),Int}}(undef, data.T + 1)
-
-    for stage in 1:(data.T + 1)
-        Q_t = _stage_matrix(data.Q, stage)
-        S_t = _stage_matrix(data.S, stage)
-        R_t = _stage_matrix(data.R, stage)
-        block = [Q_t + data.rho * I(data.n)  S_t;
-                 S_t'                        R_t + data.rho * I(data.m)]
-        blocks[stage] = sparse(block)
-    end
-
-    return blockdiag(blocks...)
-end
-
-function _assemble_G(data::all_data)
-    dim_lambda = (data.T + 1) * data.n
+function _assemble_kkt(data::all_data)
+    Tv = eltype(data)
+    n = data.n
+    m = data.m
+    T = data.T
     dim_w = (data.T + 1) * (data.n + data.m)
-    G = spzeros(eltype(data), dim_lambda, dim_w)
+    dim_lambda = (data.T + 1) * data.n
 
-    G[1:data.n, 1:data.n] = I(data.n)
+    stage_nnz_est = div(n * (n + 1), 2) + n * m + div(m * (m + 1), 2) + n + m
+    dynamics_nnz_est = n + T * (n * n + n * m + n)
+    total_nnz_est = (T + 1) * stage_nnz_est + dynamics_nnz_est + dim_lambda
 
-    for stage in 1:data.T
-        row_start = stage * data.n + 1
-        row_end = (stage + 1) * data.n
-        col_start_AB = (stage - 1) * (data.n + data.m) + 1
-        col_end_AB = stage * (data.n + data.m)
-        A_t = _stage_matrix(data.A, stage)
-        B_t = _stage_matrix(data.B, stage)
+    rows = Int[]
+    cols = Int[]
+    vals = Tv[]
+    sizehint!(rows, total_nnz_est)
+    sizehint!(cols, total_nnz_est)
+    sizehint!(vals, total_nnz_est)
 
-        G[row_start:row_end, col_start_AB:(col_start_AB + data.n - 1)] = -A_t
-        G[row_start:row_end, (col_start_AB + data.n):col_end_AB] = -B_t
+    for stage in 1:(T + 1)
+        stage_offset = (stage - 1) * (n + m)
+        x_start = stage_offset + 1
+        u_start = x_start + n
 
-        col_start_I = stage * (data.n + data.m) + 1
-        G[row_start:row_end, col_start_I:(col_start_I + data.n - 1)] = I(data.n)
+        _append_symmetric_lower!(rows, cols, vals, _stage_matrix(data.Q, stage), x_start, data.rho)
+        _append_transpose_block!(rows, cols, vals, _stage_matrix(data.S, stage), u_start, x_start)
+        _append_symmetric_lower!(rows, cols, vals, _stage_matrix(data.R, stage), u_start, data.rho)
     end
 
-    return G
+    for stage in 1:(T + 1)
+        row_start = dim_w + (stage - 1) * n + 1
+
+        if stage == 1
+            _append_diagonal_block!(rows, cols, vals, row_start, 1, n, one(Tv))
+            continue
+        end
+
+        prev_stage_offset = (stage - 2) * (n + m)
+        cur_x_start = (stage - 1) * (n + m) + 1
+
+        _append_block!(rows, cols, vals, _stage_matrix(data.A, stage - 1), row_start, prev_stage_offset + 1, -one(Tv))
+        _append_block!(rows, cols, vals, _stage_matrix(data.B, stage - 1), row_start, prev_stage_offset + n + 1, -one(Tv))
+        _append_diagonal_block!(rows, cols, vals, row_start, cur_x_start, n, one(Tv))
+    end
+
+    _append_diagonal_block!(rows, cols, vals, dim_w + 1, dim_w + 1, dim_lambda, -data.reg)
+
+    return Symmetric(sparse(rows, cols, vals, data.nc, data.nc), :L)
 end
 
 function solve(data::all_data, prox_operator!; max_iters=3000)
@@ -80,8 +140,6 @@ end
 
 function solve!(vars::prob_vars, cache::solver_cache, prox_operator!; max_iters=3000)
     data = cache.data
-    rhs_top = _rhs_top(cache)
-    sol_top = _sol_top(cache)
     tt = Timings{eltype(data)}()
     total_start = time_ns()
     _set_rhs_lower!(cache)
@@ -91,16 +149,16 @@ function solve!(vars::prob_vars, cache::solver_cache, prox_operator!; max_iters=
         copyto!(cache.u_t_prev, vars.u_t)
 
         for stage in 1:(data.T + 1)
-            @views @. rhs_top[1:data.n, stage] = data.rho * (vars.x_t[:, stage] + vars.z[:, stage]) - data.q[:, stage]
-            @views @. rhs_top[(data.n + 1):end, stage] = data.rho * (vars.u_t[:, stage] + vars.y[:, stage]) - data.r[:, stage]
+            @views @. cache.rhs_top[1:data.n, stage] = data.rho * (vars.x_t[:, stage] + vars.z[:, stage]) - data.q[:, stage]
+            @views @. cache.rhs_top[(data.n + 1):end, stage] = data.rho * (vars.u_t[:, stage] + vars.y[:, stage]) - data.r[:, stage]
         end
 
         lin_sys_start = time_ns()
         ldiv!(cache.sol, cache.factorization, cache.rhs)
         tt.lin_sys_time += _elapsed_ms(lin_sys_start)
 
-        @views vars.x .= sol_top[1:data.n, :]
-        @views vars.u .= sol_top[(data.n + 1):end, :]
+        @views vars.x .= cache.sol_top[1:data.n, :]
+        @views vars.u .= cache.sol_top[(data.n + 1):end, :]
 
         if data.alpha != one(eltype(data))
             vars.x .= data.alpha .* vars.x .+ (one(eltype(data)) - data.alpha) .* vars.x_t

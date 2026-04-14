@@ -25,9 +25,7 @@ function box_constrained_quadratic_ocp(n, m, T)
     q = zeros(n, T+1)
     r = zeros(m, T+1)
 
-    phi = (Q, S, R, q, r)
-
-    return phi, A, B, c, x0
+    return A, B, c, Q, S, R, q, r, x0
 end
 
 # proximal operator
@@ -45,19 +43,10 @@ function solve_box_constrained_ocp()
     m = 2  
     T = 20 
 
-    phi, A, B, c, x0 = box_constrained_quadratic_ocp(n, m, T)
+    A, B, c, Q, S, R, q, r, x0 = box_constrained_quadratic_ocp(n, m, T)
 
-    x_opt, u_opt = OptimalControl_OperatorSplitting.solve_ocp(
-        phi, 
-        box_proximal!, 
-        A, 
-        B, 
-        c, 
-        x0, 
-        T; 
-        max_iters=50, 
-        rho=50.0
-    )
+    data = OptimalControl_OperatorSplitting.all_data(A, B, c, Q, S, R, q, r, x0; rho=50.0)
+    x_opt, u_opt, tt = OptimalControl_OperatorSplitting.solve(data, box_proximal!; max_iters=50)
 end
 
 
@@ -104,20 +93,11 @@ function solve_box_constrained_ocp_ipopt()
     T = 20 
 
     # Generate the exact same problem structure
-    phi, A, B, c, x0 = box_constrained_quadratic_ocp(n, m, T)
+    A, B, c, Q, S, R, q, r, x0 = box_constrained_quadratic_ocp(n, m, T)
 
     # Run the solver using the Ipopt proximal step
-    x_opt, u_opt = OptimalControl_OperatorSplitting.solve_ocp(
-        phi, 
-        ipopt_box_proximal!, # <--- Injecting the Ipopt version here
-        A, 
-        B, 
-        c, 
-        x0, 
-        T; 
-        max_iters=50, 
-        rho=50.0
-    )
+    data = OptimalControl_OperatorSplitting.all_data(A, B, c, Q, S, R, q, r, x0; rho=50.0)
+    x_opt, u_opt, tt = OptimalControl_OperatorSplitting.solve(data, ipopt_box_proximal!; max_iters=50)
 end
 
 # --- 3. The Benchmark Showdown ---

@@ -52,12 +52,14 @@ mutable struct Timings{Tv<:AbstractFloat}
     converged::Bool
 end
 
-struct solver_cache{Tv<:AbstractFloat,Td,Tf}
+struct solver_cache{Tv<:AbstractFloat,Td,Tf,TRhsTop,TRhsLower,TSolTop}
     data::Td
     factorization::Tf
-    dim_w::Int
     rhs::Vector{Tv}
     sol::Vector{Tv}
+    rhs_top::TRhsTop
+    rhs_lower::TRhsLower
+    sol_top::TSolTop
     v::Matrix{Tv}
     w::Matrix{Tv}
     x_t_prev::Matrix{Tv}
