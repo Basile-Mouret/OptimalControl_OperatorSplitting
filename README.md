@@ -124,3 +124,24 @@ pkg> test
 ## Examples
 
 Runnable examples live in `examples/`.
+
+Run them with:
+
+```bash
+julia --project=. examples/<example>.jl <size>
+```
+
+where `<size>` is one of:
+
+- `small`
+- `medium`
+- `large`
+
+Examples:
+
+```bash
+julia --project=. examples/box_constrained_quadratic_optimal_control.jl small
+julia --project=. examples/multiperiod_portfolio_optimization.jl medium
+julia --project=. examples/robust_state_estimation.jl large
+julia --project=. examples/supply_chain_management.jl small
+```
