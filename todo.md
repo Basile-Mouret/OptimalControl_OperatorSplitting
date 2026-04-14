@@ -1,17 +1,13 @@
-- generalize solver code 
-   - caching : cold / warm start
 - data :
     - parser
     - use their generator 
 - examples : 
    - refactor file strucutre
-   - box quadratic : 
-    - 
+- refactor : 
+  - assembly funcs and convergence func in utils
 - benchmarks : 
  - julia vs c
  - bonus : other methods
-- optimization : 
-  - matrix assembly 
 
 - testing
 - report
