@@ -6,7 +6,9 @@ _sol_top(cache::solver_cache) = reshape(view(cache.sol, 1:cache.dim_w), cache.da
 
 _stacked_norm(A, B) = hypot(norm(A), norm(B))
 
-function _has_converged(data::all_data, vars::prob_vars, cache::solver_cache)
+_elapsed_ms(start_ns) = (time_ns() - start_ns) / 1e6
+
+function _convergence_metrics!(data::all_data, vars::prob_vars, cache::solver_cache)
     tol_scale = sqrt((data.T + 1) * (data.n + data.m))
 
     @. cache.v = vars.x_t - vars.x
@@ -23,7 +25,7 @@ function _has_converged(data::all_data, vars::prob_vars, cache::solver_cache)
     )
     eps_dual = data.eps_abs * tol_scale + data.eps_rel * _stacked_norm(vars.z, vars.y)
 
-    return r_norm <= eps_pri && s_norm <= eps_dual
+    return r_norm, s_norm, eps_pri, eps_dual
 end
 
 function _assemble_E(data::all_data)
@@ -72,16 +74,19 @@ end
 
 function solve(cache::solver_cache, prox_operator!; max_iters=3000)
     vars = prob_vars(cache.data)
-    return solve!(vars, cache, prox_operator!; max_iters=max_iters)
+    tt = solve!(vars, cache, prox_operator!; max_iters=max_iters)
+    return vars.x_t, vars.u_t, tt
 end
 
 function solve!(vars::prob_vars, cache::solver_cache, prox_operator!; max_iters=3000)
     data = cache.data
     rhs_top = _rhs_top(cache)
     sol_top = _sol_top(cache)
+    tt = Timings{eltype(data)}()
+    total_start = time_ns()
     _set_rhs_lower!(cache)
 
-    for _ in 1:max_iters
+    for iter in 1:max_iters
         copyto!(cache.x_t_prev, vars.x_t)
         copyto!(cache.u_t_prev, vars.u_t)
 
@@ -90,7 +95,9 @@ function solve!(vars::prob_vars, cache::solver_cache, prox_operator!; max_iters=
             @views @. rhs_top[(data.n + 1):end, stage] = data.rho * (vars.u_t[:, stage] + vars.y[:, stage]) - data.r[:, stage]
         end
 
+        lin_sys_start = time_ns()
         ldiv!(cache.sol, cache.factorization, cache.rhs)
+        tt.lin_sys_time += _elapsed_ms(lin_sys_start)
 
         @views vars.x .= sol_top[1:data.n, :]
         @views vars.u .= sol_top[(data.n + 1):end, :]
@@ -102,15 +109,27 @@ function solve!(vars::prob_vars, cache::solver_cache, prox_operator!; max_iters=
 
         @. cache.v = vars.x - vars.z
         @. cache.w = vars.u - vars.y
+        prox_start = time_ns()
         prox_operator!(vars.x_t, vars.u_t, cache.v, cache.w, data.rho)
+        tt.prox_time += _elapsed_ms(prox_start)
 
         vars.z .= vars.z .+ vars.x_t .- vars.x
         vars.y .= vars.y .+ vars.u_t .- vars.u
 
-        if _has_converged(data, vars, cache)
+        tt.itns = iter
+        tt.r_norm, tt.s_norm, tt.eps_pri, tt.eps_dual = _convergence_metrics!(data, vars, cache)
+
+        if tt.r_norm <= tt.eps_pri && tt.s_norm <= tt.eps_dual
+            tt.converged = true
             break
         end
     end
 
-    return vars.x_t, vars.u_t
+    if tt.itns > 0
+        tt.lin_sys_time /= tt.itns
+        tt.prox_time /= tt.itns
+    end
+
+    tt.total_time = _elapsed_ms(total_start)
+    return tt
 end
