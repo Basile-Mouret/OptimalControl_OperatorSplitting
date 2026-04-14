@@ -1,12 +1,10 @@
 - generalize solver code 
    - caching : cold / warm start
-   - convergence test
-   - constant quadratic case : generalize 
-   - alpha
 - data :
     - parser
     - use their generator 
 - examples : 
+   - refactor file strucutre
    - box quadratic : 
     - 
 - benchmarks : 
@@ -15,4 +13,5 @@
 - optimization : 
   - matrix assembly 
 
+- testing
 - report
