@@ -30,6 +30,10 @@
 
 #include "chapters/results.typ"
 
+= Simulation
+
+#include "chapters/simulation.typ"
+
 = Conclusion
 
 #include "chapters/conclusion.typ"
