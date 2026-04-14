@@ -1,0 +1,18 @@
+- generalize solver code 
+   - caching : cold / warm start
+   - convergence test
+   - constant quadratic case : generalize 
+   - alpha
+- data :
+    - parser
+    - use their generator 
+- examples : 
+   - box quadratic : 
+    - 
+- benchmarks : 
+ - julia vs c
+ - bonus : other methods
+- optimization : 
+  - matrix assembly 
+
+- report
