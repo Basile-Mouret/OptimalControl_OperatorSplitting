@@ -3,6 +3,7 @@ using JuMP
 using BenchmarkTools
 using JuMP
 using Ipopt
+using OptimalControl_OperatorSplitting
 
 function box_constrained_quadratic_ocp(n, m, T)
     # --- Generate System Dynamics ---
