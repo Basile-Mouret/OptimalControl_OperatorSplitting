@@ -12,11 +12,11 @@ include(joinpath(@__DIR__, "common.jl"))
 
 function box_size_levels(size::String)
     if size == "small"
-        return (n=4, m=2, T=20, rho=50.0)
+        return (n=5, m=2, T=10, rho=50.0)
     elseif size == "medium"
-        return (n=10, m=4, T=40, rho=50.0)
+        return (n=20, m=5, T=20, rho=50.0)
     elseif size == "large"
-        return (n=20, m=8, T=80, rho=50.0)
+        return (n=50, m=20, T=30, rho=50.0)
     else
         error("Invalid size. Choose from 'small', 'medium', or 'large'.")
     end
@@ -26,16 +26,22 @@ function box_constrained_quadratic_ocp(n, m, T; seed=0)
     Random.seed!(seed)
 
     A_rand = randn(n, n)
-    B = randn(n, m)
-
     max_eig = maximum(abs.(eigvals(A_rand)))
     A = A_rand ./ max_eig
 
-    c = zeros(n, T)
-    x0 = randn(n) * 10.0
+    B = randn(n, m)
+    B .*= 1.1 / maximum(svdvals(B))
 
-    Q = Matrix(1.0 * I(n))
-    R = Matrix(0.1 * I(m))
+    c = zeros(n, T)
+    x0 = 5.0 .* randn(n)
+
+    mat = randn(n + m, n + m)
+    mat = mat * mat'
+    mat[1:n, (n + 1):end] .= 0.0
+    mat[(n + 1):end, 1:n] .= 0.0
+
+    Q = mat[1:n, 1:n]
+    R = mat[(n + 1):end, (n + 1):end]
     S = zeros(n, m)
 
     q = zeros(n, T + 1)
@@ -59,11 +65,11 @@ function build_box_constrained_cache(; n=4, m=2, T=20, rho=50.0, seed=0)
     return setup_cache(data)
 end
 
-function solve_box_constrained_ocp(cache; max_iters=50)
+function solve_box_constrained_ocp(cache; max_iters=3000)
     return solve(cache, box_proximal!; max_iters=max_iters)
 end
 
-function solve_box_constrained_ocp(; n=4, m=2, T=20, max_iters=50, rho=50.0, seed=0)
+function solve_box_constrained_ocp(; n=5, m=2, T=10, max_iters=3000, rho=50.0, seed=0)
     cache = build_box_constrained_cache(n=n, m=m, T=T, rho=rho, seed=seed)
     return solve_box_constrained_ocp(cache; max_iters=max_iters)
 end

@@ -255,7 +255,7 @@ function supply_chain_proximal_factory!(C::Float64, U::Float64, idx_source::Vect
     return supply_chain_proximal!
 end
 
-function solve_supply_chain_management_ocp(; n::Int=20, T::Int=20, numsource::Int=2, numsink::Int=2, dist::Float64=0.4, max_iters::Int=300, rho::Float64=2.5, seed::Int=0)
+function solve_supply_chain_management_ocp(; n::Int=20, T::Int=20, numsource::Int=2, numsink::Int=2, dist::Float64=0.4, max_iters::Int=3000, rho::Float64=2.5, seed::Int=0)
     phi, A, B, c, x0, C, Ub, idx_source, idx_depart = supply_chain_data(n, T, numsource, numsink, dist; seed=seed)
     prox_operator! = supply_chain_proximal_factory!(C, Ub, idx_source, idx_depart)
 
@@ -267,7 +267,7 @@ function solve_supply_chain_management_ocp(; n::Int=20, T::Int=20, numsource::In
     return x_opt, u_opt, tt
 end
 
-function solve_supply_chain_management_size(size::String; max_iters::Int=300, seed::Int=0)
+function solve_supply_chain_management_size(size::String; max_iters::Int=3000, seed::Int=0)
     sizes = supply_chain_size_levels(size)
     return solve_supply_chain_management_ocp(
         n=sizes.n,

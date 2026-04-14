@@ -6,11 +6,11 @@ include(joinpath(@__DIR__, "common.jl"))
 
 function robust_size_levels(size::String)
     if size == "small"
-        return 10, 10, 5, 30
+        return (n=10, m=10, p=5, T=30, rho=0.1)
     elseif size == "medium"
-        return 30, 30, 10, 60
+        return (n=30, m=30, p=10, T=60, rho=0.1)
     elseif size == "large"
-        return 50, 50, 20, 100
+        return (n=50, m=50, p=20, T=100, rho=0.1)
     else
         error("Invalid size. Choose from 'small', 'medium', or 'large'.")
     end
@@ -113,7 +113,7 @@ function robust_proximal_factory!(M::Float64)
     return robust_proximal!
 end
 
-function solve_robust_state_estimation_ocp(; n::Int=30, m::Int=30, p::Int=10, T::Int=60, max_iters::Int=200, rho::Float64=0.1, seed::Int=0)
+function solve_robust_state_estimation_ocp(; n::Int=30, m::Int=30, p::Int=10, T::Int=60, max_iters::Int=3000, rho::Float64=0.1, seed::Int=0)
     phi, A, B, c, x0, M, ym, _ = robust_state_estimation_data(n, m, p, T; seed=seed)
     prox_operator! = robust_proximal_factory!(M)
 
@@ -124,9 +124,17 @@ function solve_robust_state_estimation_ocp(; n::Int=30, m::Int=30, p::Int=10, T:
     return x_opt, u_opt, ym, tt
 end
 
-function solve_robust_state_estimation_size(size::String; max_iters::Int=200, rho::Float64=0.1, seed::Int=0)
-    n, m, p, T = robust_size_levels(size)
-    return solve_robust_state_estimation_ocp(n=n, m=m, p=p, T=T, max_iters=max_iters, rho=rho, seed=seed)
+function solve_robust_state_estimation_size(size::String; max_iters::Int=3000, seed::Int=0)
+    sizes = robust_size_levels(size)
+    return solve_robust_state_estimation_ocp(
+        n=sizes.n,
+        m=sizes.m,
+        p=sizes.p,
+        T=sizes.T,
+        max_iters=max_iters,
+        rho=sizes.rho,
+        seed=seed,
+    )
 end
 
 function main()
