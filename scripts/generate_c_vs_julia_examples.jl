@@ -9,6 +9,7 @@ const EXAMPLES = [
 ]
 const SIZES = ["small", "medium", "large"]
 const N_COLD = 100
+const SINGLE_THREAD = true
 
 function parse_c_stats(output::String)
     factor = parse(Float64, match(r"KKT matrix factorization took ([0-9.]+) ms", output).captures[1])
@@ -31,7 +32,8 @@ end
 
 function run_c(example::String, size::String)
     dir = joinpath(ROOT, "osc", example)
-    cmd = `bash -lc $("cp data/$(size)/* data/ && ./run_osc")`
+    run_cmd = SINGLE_THREAD ? "OMP_NUM_THREADS=1 ./run_osc" : "./run_osc"
+    cmd = `bash -lc $("cp data/$(size)/* data/ && $(run_cmd)")`
     output = cd(dir) do
         read(cmd, String)
     end
@@ -40,8 +42,11 @@ end
 
 function julia_benchmark_code(script::String, loader::String, size::String)
     return """
+    using LinearAlgebra
     using OptimalControl_OperatorSplitting
     include(joinpath(pwd(), \"examples\", \"$script\"))
+
+    BLAS.set_num_threads(1)
 
     function reset_cache!(cache)
         vars = cache.vars
@@ -95,7 +100,12 @@ function julia_benchmark_code(script::String, loader::String, size::String)
 end
 
 function run_julia(script::String, loader::String, size::String)
-    cmd = `julia --project=. -e $(julia_benchmark_code(script, loader, size))`
+    if SINGLE_THREAD
+        cmd = `julia --project=. -e $(julia_benchmark_code(script, loader, size))`
+        cmd = addenv(cmd, "JULIA_NUM_THREADS" => "1")
+    else
+        cmd = `julia --project=. -e $(julia_benchmark_code(script, loader, size))`
+    end
     output = cd(ROOT) do
         read(cmd, String)
     end
@@ -139,6 +149,7 @@ function main()
     println(io, "Notes:")
     println(io, "- C numbers come from `run_osc` and are the reported average over 100 cold starts.")
     println(io, "- Julia numbers are warmed first, then averaged over 100 cold starts on the same fixture data, with the cache state reset between solves.")
+    println(io, "- Both sides are run in single-thread mode (`OMP_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`, `BLAS.set_num_threads(1)`).")
     println(io, "- `C factor ms` is the factorization time reported by the C code.")
     println(io, "- `Julia setup ms` is one warmed `setup_cache(data)` call and therefore includes Julia-side KKT assembly plus factorization.")
     println(io)
