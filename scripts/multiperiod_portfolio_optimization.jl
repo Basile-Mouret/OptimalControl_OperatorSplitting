@@ -99,7 +99,7 @@ function portfolio_proximal_factory!(kappa::Vector{Float64}, x_term::Vector{Floa
 	return portfolio_proximal!
 end
 
-function solve_multiperiod_portfolio_ocp(; n::Int=30, T::Int=60, max_iters::Int=500, rho::Float64=0.1, seed::Int=0)
+function solve_multiperiod_portfolio_ocp(; n::Int=30, T::Int=60, max_iters::Int=27, rho::Float64=0.1, seed::Int=0)
 	phi, A, B, c, x0, x_term, kappa = multiperiod_portfolio_data(n, T; seed=seed)
 	prox_operator! = portfolio_proximal_factory!(kappa, x_term)
 
@@ -118,6 +118,14 @@ function solve_multiperiod_portfolio_ocp(; n::Int=30, T::Int=60, max_iters::Int=
 	return x_opt, u_opt
 end
 
-println("Benchmarking Analytical Finance Proximal Step...")
-@btime solve_multiperiod_portfolio_ocp()
+# Small test n=10 T=30
+println("Benchmarking Multiperiod Portfolio Optimization... (Small : n=10, T=30)")
+@btime solve_multiperiod_portfolio_ocp(n=10, T=30)
 
+# Medium test n=30 T=60
+println("Benchmarking Multiperiod Portfolio Optimization... (n=30, T=60)")
+@btime solve_multiperiod_portfolio_ocp(n=30, T=60)
+
+# Large test n=50 T=100
+println("Benchmarking Multiperiod Portfolio Optimization... (Large : n=50, T=100)")
+@btime solve_multiperiod_portfolio_ocp(n=50, T=100)
