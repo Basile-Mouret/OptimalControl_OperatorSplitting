@@ -78,5 +78,27 @@ Timings{Tv}() where {Tv<:AbstractFloat} = Timings{Tv}(
 
 Timings() = Timings{Float64}()
 
+_fmt_ms(x) = string(round(x; digits=3), " ms")
+_fmt_ms_per_iter(x) = string(round(x; digits=3), " ms/iter")
+_fmt_sci(x) = string(round(x; sigdigits=4))
+
+function Base.show(io::IO, tt::Timings)
+    status = tt.converged ? "converged" : "not converged"
+    print(io, "Timings(", status, ", ", tt.itns, " itns, ", _fmt_ms(tt.total_time), ")")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", tt::Timings)
+    status = tt.converged ? "converged" : "not converged"
+
+    println(io, "Timings")
+    println(io, "  status: ", status)
+    println(io, "  iterations: ", tt.itns)
+    println(io, "  total time: ", _fmt_ms(tt.total_time))
+    println(io, "  linear solve: ", _fmt_ms_per_iter(tt.lin_sys_time))
+    println(io, "  prox: ", _fmt_ms_per_iter(tt.prox_time))
+    println(io, "  primal residual: ", _fmt_sci(tt.r_norm), " (tol ", _fmt_sci(tt.eps_pri), ")")
+    print(io, "  dual residual: ", _fmt_sci(tt.s_norm), " (tol ", _fmt_sci(tt.eps_dual), ")")
+end
+
 Base.eltype(::all_data{Tv}) where {Tv<:AbstractFloat} = Tv
 Base.eltype(::prob_vars{Tv}) where {Tv<:AbstractFloat} = Tv
