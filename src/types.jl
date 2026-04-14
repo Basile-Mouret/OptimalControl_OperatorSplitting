@@ -28,6 +28,18 @@ mutable struct prob_vars{Tv<:AbstractFloat}
     y::Matrix{Tv}
 end
 
+function prob_vars(data::all_data{Tv}) where {Tv<:AbstractFloat}
+    x = zeros(Tv, data.n, data.T + 1)
+    u = zeros(Tv, data.m, data.T + 1)
+    x_t = zeros(Tv, data.n, data.T + 1)
+    u_t = zeros(Tv, data.m, data.T + 1)
+    z = zeros(Tv, data.n, data.T + 1)
+    y = zeros(Tv, data.m, data.T + 1)
+
+    x_t[:, 1] = data.x_init
+    return prob_vars(x, u, x_t, u_t, z, y)
+end
+
 mutable struct Timings{Tv<:AbstractFloat}
     prox_time::Tv
     lin_sys_time::Tv
@@ -48,6 +60,8 @@ struct solver_cache{Tv<:AbstractFloat,Td,Tf}
     sol::Vector{Tv}
     v::Matrix{Tv}
     w::Matrix{Tv}
+    x_t_prev::Matrix{Tv}
+    u_t_prev::Matrix{Tv}
 end
 
 Timings{Tv}() where {Tv<:AbstractFloat} = Timings{Tv}(

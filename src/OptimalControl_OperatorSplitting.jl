@@ -6,7 +6,6 @@ using SuiteSparse
 
 export Timings
 export all_data
-export init_prob_vars
 export prob_vars
 export setup_cache
 export solve
