@@ -34,31 +34,63 @@ function solve(cache::solver_cache, prox_operator!; max_iters=3000)
         copyto!(cache.x_t_prev, vars.x_t)
         copyto!(cache.u_t_prev, vars.u_t)
 
-        for stage in 1:(data.T + 1)
-            @views @. cache.rhs_top[1:data.n, stage] = data.rho * (vars.x_t[:, stage] + vars.z[:, stage]) - data.q[:, stage]
-            @views @. cache.rhs_top[(data.n + 1):end, stage] = data.rho * (vars.u_t[:, stage] + vars.y[:, stage]) - data.r[:, stage]
+        @inbounds for stage in 1:T1
+            base_rhs = (stage - 1) * nm
+            base_x = (stage - 1) * n
+            base_u = (stage - 1) * m
+
+            for i in 1:n
+                rhs_top[base_rhs + i] = data.rho * (vars.x_t[base_x + i] + vars.z[base_x + i]) - data.q[i, stage]
+            end
+            for i in 1:m
+                rhs_top[base_rhs + n + i] = data.rho * (vars.u_t[base_u + i] + vars.y[base_u + i]) - data.r[i, stage]
+            end
         end
 
         lin_sys_start = time_ns()
         ldiv!(cache.sol, cache.factorization, cache.rhs)
         tt.lin_sys_time += _elapsed_ms(lin_sys_start)
 
-        @views vars.x .= cache.sol_top[1:data.n, :]
-        @views vars.u .= cache.sol_top[(data.n + 1):end, :]
+        @inbounds for stage in 1:T1
+            base_rhs = (stage - 1) * nm
+            base_x = (stage - 1) * n
+            base_u = (stage - 1) * m
 
-        if data.alpha != one(eltype(data))
-            vars.x .= data.alpha .* vars.x .+ (one(eltype(data)) - data.alpha) .* vars.x_t
-            vars.u .= data.alpha .* vars.u .+ (one(eltype(data)) - data.alpha) .* vars.u_t
+            for i in 1:n
+                vars.x[base_x + i] = sol_top[base_rhs + i]
+            end
+            for i in 1:m
+                vars.u[base_u + i] = sol_top[base_rhs + n + i]
+            end
         end
 
-        @. cache.v = vars.x - vars.z
-        @. cache.w = vars.u - vars.y
+        if data.alpha != one(eltype(data))
+            omalpha = one(eltype(data)) - data.alpha
+            @inbounds for i in 1:nx
+                vars.x[i] = data.alpha * vars.x[i] + omalpha * vars.x_t[i]
+            end
+            @inbounds for i in 1:nu
+                vars.u[i] = data.alpha * vars.u[i] + omalpha * vars.u_t[i]
+            end
+        end
+
+        @inbounds for i in 1:nx
+            cache.v[i] = vars.x[i] - vars.z[i]
+        end
+        @inbounds for i in 1:nu
+            cache.w[i] = vars.u[i] - vars.y[i]
+        end
+
         prox_start = time_ns()
-        prox_operator!(vars.x_t, vars.u_t, cache.v, cache.w, data.rho)
+        prox_operator!(x_t_view, u_t_view, v_view, w_view, data.rho)
         tt.prox_time += _elapsed_ms(prox_start)
 
-        vars.z .= vars.z .+ vars.x_t .- vars.x
-        vars.y .= vars.y .+ vars.u_t .- vars.u
+        @inbounds for i in 1:nx
+            vars.z[i] += vars.x_t[i] - vars.x[i]
+        end
+        @inbounds for i in 1:nu
+            vars.y[i] += vars.u_t[i] - vars.u[i]
+        end
 
         tt.itns = iter
         tt.r_norm, tt.s_norm, tt.eps_pri, tt.eps_dual = _convergence_metrics!(data, vars, cache)
@@ -75,5 +107,5 @@ function solve(cache::solver_cache, prox_operator!; max_iters=3000)
     end
 
     tt.total_time = _elapsed_ms(total_start)
-    return copy(vars.x_t), copy(vars.u_t), tt
+    return copy(reshape(vars.x_t, n, T1)), copy(reshape(vars.u_t, m, T1)), tt
 end

@@ -19,11 +19,11 @@ The cache stays valid while `A`, `B`, `Q`, `S`, `R`, `rho`, and `reg` stay fixed
 """
 function setup_cache(data::all_data)
     dim_w = (data.T + 1) * (data.n + data.m)
+    nx = data.n * (data.T + 1)
+    nu = data.m * (data.T + 1)
     rhs = zeros(eltype(data), data.nc)
     sol = similar(rhs)
-    rhs_top = reshape(view(rhs, 1:dim_w), data.n + data.m, data.T + 1)
     rhs_lower = view(rhs, (dim_w + 1):data.nc)
-    sol_top = reshape(view(sol, 1:dim_w), data.n + data.m, data.T + 1)
     vars = prob_vars(data)
 
     cache = solver_cache(
@@ -32,13 +32,11 @@ function setup_cache(data::all_data)
         ldlt(_assemble_kkt(data)),
         rhs,
         sol,
-        rhs_top,
         rhs_lower,
-        sol_top,
-        zeros(eltype(data), data.n, data.T + 1),
-        zeros(eltype(data), data.m, data.T + 1),
-        zeros(eltype(data), data.n, data.T + 1),
-        zeros(eltype(data), data.m, data.T + 1),
+        zeros(eltype(data), nx),
+        zeros(eltype(data), nu),
+        zeros(eltype(data), nx),
+        zeros(eltype(data), nu),
     )
 
     _set_rhs_lower!(cache)

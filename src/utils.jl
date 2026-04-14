@@ -40,14 +40,14 @@ _stage_matrix(data::AbstractArray{<:Any,3}, stage) = @view data[:, :, stage]
 _stacked_norm(A, B) = hypot(norm(A), norm(B))
 
 function prob_vars(data::all_data{Tv}) where {Tv<:AbstractFloat}
-    x = zeros(Tv, data.n, data.T + 1)
-    u = zeros(Tv, data.m, data.T + 1)
-    x_t = zeros(Tv, data.n, data.T + 1)
-    u_t = zeros(Tv, data.m, data.T + 1)
-    z = zeros(Tv, data.n, data.T + 1)
-    y = zeros(Tv, data.m, data.T + 1)
+    x = zeros(Tv, data.n * (data.T + 1))
+    u = zeros(Tv, data.m * (data.T + 1))
+    x_t = zeros(Tv, data.n * (data.T + 1))
+    u_t = zeros(Tv, data.m * (data.T + 1))
+    z = zeros(Tv, data.n * (data.T + 1))
+    y = zeros(Tv, data.m * (data.T + 1))
 
-    x_t[:, 1] = data.x_init
+    copyto!(x_t, 1, data.x_init, 1, data.n)
     return prob_vars(x, u, x_t, u_t, z, y)
 end
 
@@ -145,12 +145,23 @@ end
 function _convergence_metrics!(data::all_data, vars::prob_vars, cache::solver_cache)
     tol_scale = sqrt((data.T + 1) * (data.n + data.m))
 
-    @. cache.v = vars.x_t - vars.x
-    @. cache.w = vars.u_t - vars.u
+    nx = length(vars.x)
+    nu = length(vars.u)
+
+    @inbounds for i in 1:nx
+        cache.v[i] = vars.x_t[i] - vars.x[i]
+    end
+    @inbounds for i in 1:nu
+        cache.w[i] = vars.u_t[i] - vars.u[i]
+    end
     r_norm = _stacked_norm(cache.v, cache.w)
 
-    @. cache.x_t_prev = vars.x_t - cache.x_t_prev
-    @. cache.u_t_prev = vars.u_t - cache.u_t_prev
+    @inbounds for i in 1:nx
+        cache.x_t_prev[i] = vars.x_t[i] - cache.x_t_prev[i]
+    end
+    @inbounds for i in 1:nu
+        cache.u_t_prev[i] = vars.u_t[i] - cache.u_t_prev[i]
+    end
     s_norm = data.rho * _stacked_norm(cache.x_t_prev, cache.u_t_prev)
 
     eps_pri = data.eps_abs * tol_scale + data.eps_rel * max(
