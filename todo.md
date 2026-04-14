@@ -1,10 +1,9 @@
 - data :
     - parser
     - use their generator 
-- examples : 
-   - refactor file strucutre
 - refactor : 
   - assembly funcs and convergence func in utils
+
 - benchmarks : 
  - julia vs c
  - bonus : other methods
