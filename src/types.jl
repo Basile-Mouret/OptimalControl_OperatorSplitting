@@ -26,12 +26,12 @@ struct all_data{Tv<:AbstractFloat,TA,TB,TC,TQ,TS,TR,Tq,Tr,Tx}
 end
 
 mutable struct prob_vars{Tv<:AbstractFloat}
-    x::Matrix{Tv}
-    u::Matrix{Tv}
-    x_t::Matrix{Tv}
-    u_t::Matrix{Tv}
-    z::Matrix{Tv}
-    y::Matrix{Tv}
+    x::Vector{Tv}
+    u::Vector{Tv}
+    x_t::Vector{Tv}
+    u_t::Vector{Tv}
+    z::Vector{Tv}
+    y::Vector{Tv}
 end
 
 mutable struct Timings{Tv<:AbstractFloat}
@@ -46,19 +46,17 @@ mutable struct Timings{Tv<:AbstractFloat}
     converged::Bool
 end
 
-struct solver_cache{Tv<:AbstractFloat,Td,Tf,TRhsTop,TRhsLower,TSolTop}
+struct solver_cache{Tv<:AbstractFloat,Td,Tf,TRhsLower}
     data::Td
     vars::prob_vars{Tv}
     factorization::Tf
     rhs::Vector{Tv}
     sol::Vector{Tv}
-    rhs_top::TRhsTop
     rhs_lower::TRhsLower
-    sol_top::TSolTop
-    v::Matrix{Tv}
-    w::Matrix{Tv}
-    x_t_prev::Matrix{Tv}
-    u_t_prev::Matrix{Tv}
+    v::Vector{Tv}
+    w::Vector{Tv}
+    x_t_prev::Vector{Tv}
+    u_t_prev::Vector{Tv}
 end
 
 Base.eltype(::all_data{Tv}) where {Tv<:AbstractFloat} = Tv

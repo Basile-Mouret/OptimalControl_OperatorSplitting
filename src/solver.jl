@@ -14,6 +14,18 @@ Returns copies of the current trajectories together with the timing data.
 function solve(cache::solver_cache, prox_operator!; max_iters=3000)
     data = cache.data
     vars = cache.vars
+    T1 = data.T + 1
+    n = data.n
+    m = data.m
+    nm = n + m
+    nx = n * T1
+    nu = m * T1
+    rhs_top = view(cache.rhs, 1:(nm * T1))
+    sol_top = view(cache.sol, 1:(nm * T1))
+    v_view = reshape(cache.v, n, T1)
+    w_view = reshape(cache.w, m, T1)
+    x_t_view = reshape(vars.x_t, n, T1)
+    u_t_view = reshape(vars.u_t, m, T1)
     tt = Timings{eltype(data)}()
     total_start = time_ns()
     _set_rhs_lower!(cache)
