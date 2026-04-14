@@ -116,19 +116,11 @@ function solve_robust_state_estimation_ocp(; n::Int=30, m::Int=30, p::Int=10, T:
     phi, A, B, c, x0, M, ym, _ = robust_state_estimation_data(n, m, p, T; seed=seed)
     prox_operator! = robust_proximal_factory!(M)
 
-    x_opt, u_opt = OptimalControl_OperatorSplitting.solve_ocp(
-        phi,
-        prox_operator!,
-        A,
-        B,
-        c,
-        x0,
-        T;
-        max_iters=max_iters,
-        rho=rho,
-    )
+    data = OptimalControl_OperatorSplitting.all_data(A, B, c, phi[1], phi[2], phi[3], phi[4], phi[5], x0; rho=rho, alpha=1.8)
+    cache = OptimalControl_OperatorSplitting.setup_cache(data)
+    x_opt, u_opt, tt = OptimalControl_OperatorSplitting.solve(cache, prox_operator!; max_iters=max_iters)
 
-    return x_opt, u_opt, ym
+    return x_opt, u_opt, ym, tt
 end
 
 function solve_robust_state_estimation_size(size::String; max_iters::Int=200, rho::Float64=0.1, seed::Int=0)
@@ -137,10 +129,13 @@ function solve_robust_state_estimation_size(size::String; max_iters::Int=200, rh
 end
 
 println("Benchmarking Robust State Estimation... (Small: n=10, m=10, p=5, T=30)")
-@btime solve_robust_state_estimation_size("small")
+x_opt, u_opt, ym, tt = solve_robust_state_estimation_size("small")
+display(tt)
 
 println("Benchmarking Robust State Estimation... (Medium: n=30, m=30, p=10, T=60)")
-@btime solve_robust_state_estimation_size("medium")
+x_opt, u_opt, ym, tt = solve_robust_state_estimation_size("medium")
+display(tt)
 
 println("Benchmarking Robust State Estimation... (Large: n=50, m=50, p=20, T=100)")
-@btime solve_robust_state_estimation_size("large")
+x_opt, u_opt, ym, tt = solve_robust_state_estimation_size("large")
+display(tt)

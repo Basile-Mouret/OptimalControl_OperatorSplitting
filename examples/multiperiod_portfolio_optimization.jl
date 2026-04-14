@@ -103,29 +103,24 @@ function solve_multiperiod_portfolio_ocp(; n::Int=30, T::Int=60, max_iters::Int=
 	phi, A, B, c, x0, x_term, kappa = multiperiod_portfolio_data(n, T; seed=seed)
 	prox_operator! = portfolio_proximal_factory!(kappa, x_term)
 
-	x_opt, u_opt = OptimalControl_OperatorSplitting.solve_ocp(
-		phi,
-		prox_operator!,
-		A,
-		B,
-		c,
-		x0,
-		T;
-		max_iters=max_iters,
-		rho=rho,
-	)
+	data = OptimalControl_OperatorSplitting.all_data(A, B, c, phi[1], phi[2], phi[3], phi[4], phi[5], x0; rho=rho, alpha=1.8)
+	cache = OptimalControl_OperatorSplitting.setup_cache(data)
+	x_opt, u_opt, tt = OptimalControl_OperatorSplitting.solve(cache, prox_operator!; max_iters=max_iters)
 
-	return x_opt, u_opt
+	return x_opt, u_opt, tt
 end
 
 # Small test n=10 T=30
 println("Benchmarking Multiperiod Portfolio Optimization... (Small : n=10, T=30)")
-@btime solve_multiperiod_portfolio_ocp(n=10, T=30)
+x_opt, u_opt, tt = solve_multiperiod_portfolio_ocp(n=10, T=30)
+display(tt)
 
 # Medium test n=30 T=60
 println("Benchmarking Multiperiod Portfolio Optimization... (n=30, T=60)")
-@btime solve_multiperiod_portfolio_ocp(n=30, T=60)
+x_opt, u_opt, tt = solve_multiperiod_portfolio_ocp(n=30, T=60)
+display(tt)
 
 # Large test n=50 T=100
 println("Benchmarking Multiperiod Portfolio Optimization... (Large : n=50, T=100)")
-@btime solve_multiperiod_portfolio_ocp(n=50, T=100)
+x_opt, u_opt, tt = solve_multiperiod_portfolio_ocp(n=50, T=100)
+display(tt)

@@ -3,13 +3,25 @@ using Random
 using BenchmarkTools
 using OptimalControl_OperatorSplitting
 
+"""
+Return the paper's benchmark settings for the supply-chain example.
+
+The inputs are:
+- `n`: number of warehouses
+- `m`: number of edges in the paper table
+- `T`: horizon length
+- `numsource`: number of source nodes
+- `numsink`: number of sink nodes
+- `dist`: graph connectivity threshold
+- `rho`: ADMM penalty parameter
+"""
 function supply_chain_size_levels(size::String)
     if size == "small"
-        return 5, 20, 2, 2, 0.6, 2.5
+        return (n=5, m=25, T=20, numsource=2, numsink=2, dist=0.6, rho=2.5)
     elseif size == "medium"
-        return 20, 20, 2, 2, 0.4, 2.5
+        return (n=20, m=118, T=20, numsource=2, numsink=2, dist=0.4, rho=2.5)
     elseif size == "large"
-        return 40, 20, 2, 2, 0.3, 2.5
+        return (n=40, m=380, T=20, numsource=2, numsink=2, dist=0.3, rho=2.5)
     else
         error("Invalid size. Choose from 'small', 'medium', or 'large'.")
     end
@@ -44,11 +56,19 @@ end
 """
 Generate one supply-chain management instance following `sup_ch/gen_data.m`.
 
+Inputs:
+- `n`: number of warehouses
+- `T`: horizon length
+- `numsource`: number of source nodes
+- `numsink`: number of sink nodes
+- `dist`: maximum edge length kept in the graph
+- `seed`: random seed
+
 Returns:
-- phi = (Q, S, R, q, r)
-- system matrices A, B, c
-- initial state x0
-- proximal data C, U, idx_source, idx_depart
+- `phi = (Q, S, R, q, r)`
+- system matrices `A`, `B`, `c`
+- initial state `x0`
+- proximal data `C`, `U`, `idx_source`, `idx_depart`
 """
 function supply_chain_data(n::Int, T::Int, numsource::Int, numsink::Int, dist::Float64; seed::Int=0)
     Random.seed!(seed)
@@ -202,6 +222,9 @@ end
 
 """
 Proximal operator for supply-chain management (matches OSC C code).
+
+The prox step projects the state into `[0, C]` and the inputs into
+`[0, U]`, while enforcing the per-node flow balance through bisection.
 """
 function supply_chain_proximal_factory!(C::Float64, U::Float64, idx_source::Vector{Int}, idx_depart::Vector{Vector{Int}})
     function supply_chain_proximal!(x_tilde, u_tilde, v, w, rho)
@@ -237,30 +260,65 @@ function solve_supply_chain_management_ocp(; n::Int=20, T::Int=20, numsource::In
 
     data = OptimalControl_OperatorSplitting.all_data(A, B, c, phi[1], phi[2], phi[3], phi[4], phi[5], x0; rho=rho, alpha=1.8)
     cache = OptimalControl_OperatorSplitting.setup_cache(data)
-    x_opt, u_opt, _ = OptimalControl_OperatorSplitting.solve(cache, prox_operator!; max_iters=max_iters)
+    x_opt, u_opt, tt = OptimalControl_OperatorSplitting.solve(cache, prox_operator!; max_iters=max_iters)
 
-    return x_opt, u_opt
+
+    return x_opt, u_opt, tt
 end
 
 function solve_supply_chain_management_size(size::String; max_iters::Int=300, seed::Int=0)
-    n, T, numsource, numsink, dist, rho = supply_chain_size_levels(size)
+    sizes = supply_chain_size_levels(size)
     return solve_supply_chain_management_ocp(
-        n=n,
-        T=T,
-        numsource=numsource,
-        numsink=numsink,
-        dist=dist,
+        n=sizes.n,
+        T=sizes.T,
+        numsource=sizes.numsource,
+        numsink=sizes.numsink,
+        dist=sizes.dist,
         max_iters=max_iters,
-        rho=rho,
+        rho=sizes.rho,
         seed=seed,
     )
 end
 
-println("Benchmarking Supply Chain Management... (Small: n=5, T=20)")
-@btime solve_supply_chain_management_size("small")
+println("Benchmarking Supply Chain Management... (Small: n=5, m=25, T=20)")
+sizes = supply_chain_size_levels("small")
+x_opt, u_opt, tt = solve_supply_chain_management_ocp(
+    n=sizes.n,
+    T=sizes.T,
+    numsource=sizes.numsource,
+    numsink=sizes.numsink,
+    dist=sizes.dist,
+    max_iters=300,
+    rho=sizes.rho,
+    seed=0,
+)
+display(tt)
 
-println("Benchmarking Supply Chain Management... (Medium: n=20, T=20)")
-@btime solve_supply_chain_management_size("medium")
+println("Benchmarking Supply Chain Management... (Medium: n=20, m=118, T=20)")
+sizes = supply_chain_size_levels("medium")
+x_opt, u_opt, tt = solve_supply_chain_management_ocp(
+    n=sizes.n,
+    T=sizes.T,
+    numsource=sizes.numsource,
+    numsink=sizes.numsink,
+    dist=sizes.dist,
+    max_iters=300,
+    rho=sizes.rho,
+    seed=0,
+)
+display(tt)
 
-println("Benchmarking Supply Chain Management... (Large: n=40, T=20)")
-@btime solve_supply_chain_management_size("large")
+println("Benchmarking Supply Chain Management... (Large: n=40, m=380, T=20)")
+sizes = supply_chain_size_levels("large")
+x_opt, u_opt, tt = solve_supply_chain_management_ocp(
+    n=sizes.n,
+    T=sizes.T,
+    numsource=sizes.numsource,
+    numsink=sizes.numsink,
+    dist=sizes.dist,
+    max_iters=300,
+    rho=sizes.rho,
+    seed=0,
+)
+display(tt)
+
