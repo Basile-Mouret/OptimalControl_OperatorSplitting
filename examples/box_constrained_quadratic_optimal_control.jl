@@ -55,6 +55,15 @@ function box_proximal!(x_tilde, u_tilde, v, w, rho)
     u_tilde .= clamp.(w, -1.0, 1.0)
 end
 
+function box_proximal_factory!(umin::Float64, umax::Float64)
+    function box_proximal!(x_tilde, u_tilde, v, w, rho)
+        x_tilde .= v
+        u_tilde .= clamp.(w, umin, umax)
+    end
+
+    return box_proximal!
+end
+
 function build_box_constrained_data(; n=4, m=2, T=20, rho=50.0, seed=0)
     A, B, c, Q, S, R, q, r, x0 = box_constrained_quadratic_ocp(n, m, T; seed=seed)
     return all_data(A, B, c, Q, S, R, q, r, x0; rho=rho)
@@ -74,17 +83,26 @@ function solve_box_constrained_ocp(; n=5, m=2, T=10, max_iters=3000, rho=50.0, s
     return solve_box_constrained_ocp(cache; max_iters=max_iters)
 end
 
+function load_box_fixture(size::String)
+    data = load_c_fixture_data("box", size)
+    tokens = fixture_tokens("box", size, "data_prox")
+    umax = parse(Float64, tokens[1])
+    umin = parse(Float64, tokens[2])
+    prox_operator! = box_proximal_factory!(umin, umax)
+    return data, prox_operator!
+end
+
+function solve_box_constrained_size(size::String; max_iters=3000)
+    data, prox_operator! = load_box_fixture(size)
+    cache = setup_cache(data)
+    return solve(cache, prox_operator!; max_iters=max_iters)
+end
+
 function main()
     size = parse_size_arg()
-    sizes = box_size_levels(size)
 
     println("Running box-constrained quadratic optimal control ($size)")
-    _, _, tt = solve_box_constrained_ocp(
-        n=sizes.n,
-        m=sizes.m,
-        T=sizes.T,
-        rho=sizes.rho,
-    )
+    _, _, tt = solve_box_constrained_size(size)
     display(tt)
 end
 

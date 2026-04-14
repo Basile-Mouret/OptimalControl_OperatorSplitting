@@ -124,23 +124,25 @@ function solve_robust_state_estimation_ocp(; n::Int=30, m::Int=30, p::Int=10, T:
     return x_opt, u_opt, ym, tt
 end
 
-function solve_robust_state_estimation_size(size::String; max_iters::Int=3000, seed::Int=0)
-    sizes = robust_size_levels(size)
-    return solve_robust_state_estimation_ocp(
-        n=sizes.n,
-        m=sizes.m,
-        p=sizes.p,
-        T=sizes.T,
-        max_iters=max_iters,
-        rho=sizes.rho,
-        seed=seed,
-    )
+function load_robust_state_estimation_fixture(size::String)
+    data = load_c_fixture_data("rob_est", size)
+    tokens = fixture_tokens("rob_est", size, "data_prox")
+    M = parse(Float64, tokens[1])
+    prox_operator! = robust_proximal_factory!(M)
+    return data, prox_operator!
+end
+
+function solve_robust_state_estimation_size(size::String; max_iters::Int=3000)
+    data, prox_operator! = load_robust_state_estimation_fixture(size)
+    cache = setup_cache(data)
+    x_opt, u_opt, tt = solve(cache, prox_operator!; max_iters=max_iters)
+    return x_opt, u_opt, tt
 end
 
 function main()
     size = parse_size_arg()
     println("Running robust state estimation ($size)")
-    _, _, _, tt = solve_robust_state_estimation_size(size)
+    _, _, tt = solve_robust_state_estimation_size(size)
     display(tt)
 end
 

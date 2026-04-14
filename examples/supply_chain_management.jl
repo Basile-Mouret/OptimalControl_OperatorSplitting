@@ -268,17 +268,28 @@ function solve_supply_chain_management_ocp(; n::Int=20, T::Int=20, numsource::In
 end
 
 function solve_supply_chain_management_size(size::String; max_iters::Int=3000, seed::Int=0)
-    sizes = supply_chain_size_levels(size)
-    return solve_supply_chain_management_ocp(
-        n=sizes.n,
-        T=sizes.T,
-        numsource=sizes.numsource,
-        numsink=sizes.numsink,
-        dist=sizes.dist,
-        max_iters=max_iters,
-        rho=sizes.rho,
-        seed=seed,
-    )
+    data = load_c_fixture_data("sup_ch", size)
+    tokens = fixture_tokens("sup_ch", size, "data_prox")
+
+    C = parse(Float64, tokens[1])
+    U = parse(Float64, tokens[2])
+    numsource = parse(Int, tokens[3])
+    cursor = 4
+
+    idx_source = parse.(Int, tokens[cursor:(cursor + numsource - 1)]) .+ 1
+    cursor += numsource
+
+    idx_depart = Vector{Vector{Int}}(undef, data.n)
+    for i in 1:data.n
+        len = parse(Int, tokens[cursor])
+        cursor += 1
+        idx_depart[i] = parse.(Int, tokens[cursor:(cursor + len - 1)]) .+ 1
+        cursor += len
+    end
+
+    prox_operator! = supply_chain_proximal_factory!(C, U, idx_source, idx_depart)
+    cache = setup_cache(data)
+    return solve(cache, prox_operator!; max_iters=max_iters)
 end
 
 function main()

@@ -121,9 +121,20 @@ function solve_multiperiod_portfolio_ocp(; n::Int=30, T::Int=60, max_iters::Int=
 	return x_opt, u_opt, tt
 end
 
-function solve_multiperiod_portfolio_size(size::String; max_iters::Int=3000, seed::Int=0)
-	sizes = portfolio_size_levels(size)
-	return solve_multiperiod_portfolio_ocp(n=sizes.n, T=sizes.T, max_iters=max_iters, rho=sizes.rho, seed=seed)
+function load_multiperiod_portfolio_fixture(size::String)
+	data = load_c_fixture_data("finance", size)
+	tokens = fixture_tokens("finance", size, "data_prox")
+	n = data.n
+	kappa = parse.(Float64, tokens[1:n])
+	x_term = parse.(Float64, tokens[(n + 1):(2 * n)])
+	prox_operator! = portfolio_proximal_factory!(kappa, x_term)
+	return data, prox_operator!
+end
+
+function solve_multiperiod_portfolio_size(size::String; max_iters::Int=3000)
+	data, prox_operator! = load_multiperiod_portfolio_fixture(size)
+	cache = setup_cache(data)
+	return solve(cache, prox_operator!; max_iters=max_iters)
 end
 
 function main()
