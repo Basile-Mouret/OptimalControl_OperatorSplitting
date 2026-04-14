@@ -6,6 +6,12 @@ function _set_rhs_lower!(cache::solver_cache)
     return nothing
 end
 
+"""
+    setup_cache(data)
+
+Build the reusable factorization and work buffers for repeated solves.
+The cache stays valid while `A`, `B`, `Q`, `S`, `R`, `rho`, and `reg` stay fixed.
+"""
 function setup_cache(data::all_data)
     E = _assemble_E(data)
     G = _assemble_G(data)
@@ -22,6 +28,8 @@ function setup_cache(data::all_data)
         dim_w,
         zeros(eltype(data), data.nc),
         zeros(eltype(data), data.nc),
+        zeros(eltype(data), data.n, data.T + 1),
+        zeros(eltype(data), data.m, data.T + 1),
         zeros(eltype(data), data.n, data.T + 1),
         zeros(eltype(data), data.m, data.T + 1),
     )

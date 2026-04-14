@@ -26,15 +26,3 @@ function all_data(A, B, c, Q, S, R, q, r, x_init; rho=50.0, alpha=1.0, eps_abs=1
         x_init,
     )
 end
-
-function init_prob_vars(data::all_data{Tv}) where {Tv<:AbstractFloat}
-    x = zeros(Tv, data.n, data.T + 1)
-    u = zeros(Tv, data.m, data.T + 1)
-    x_t = zeros(Tv, data.n, data.T + 1)
-    u_t = zeros(Tv, data.m, data.T + 1)
-    z = zeros(Tv, data.n, data.T + 1)
-    y = zeros(Tv, data.m, data.T + 1)
-
-    x_t[:, 1] = data.x_init
-    return prob_vars(x, u, x_t, u_t, z, y)
-end
