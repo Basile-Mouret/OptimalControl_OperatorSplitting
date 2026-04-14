@@ -1,21 +1,18 @@
-"""
+#=
 Solver API and ADMM loop.
 
-Implements the cold-start, cached, and warm-start solve paths on top of the
-shared cache, including residual-based stopping and timing collection.
+Implements the cached solve path on top of the shared cache, including
+residual-based stopping and timing collection.
+=#
 """
-function solve(data::all_data, prox_operator!; max_iters=3000)
-    return solve(setup_cache(data), prox_operator!; max_iters=max_iters)
-end
+    solve(cache, prox_operator!; max_iters=3000)
 
+Solve using a prebuilt cache. A fresh cache gives a cold start; repeated calls
+on the same cache reuse the internal ADMM state and therefore warm start.
+"""
 function solve(cache::solver_cache, prox_operator!; max_iters=3000)
-    vars = prob_vars(cache.data)
-    tt = solve!(vars, cache, prox_operator!; max_iters=max_iters)
-    return vars.x_t, vars.u_t, tt
-end
-
-function solve!(vars::prob_vars, cache::solver_cache, prox_operator!; max_iters=3000)
     data = cache.data
+    vars = cache.vars
     tt = Timings{eltype(data)}()
     total_start = time_ns()
     _set_rhs_lower!(cache)
@@ -65,5 +62,5 @@ function solve!(vars::prob_vars, cache::solver_cache, prox_operator!; max_iters=
     end
 
     tt.total_time = _elapsed_ms(total_start)
-    return tt
+    return vars.x_t, vars.u_t, tt
 end

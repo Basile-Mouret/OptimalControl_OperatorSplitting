@@ -1,9 +1,9 @@
-"""
+#=
 Core data types.
 
 Defines the main solver structs: `all_data`, `prob_vars`, `solver_cache`,
 and `Timings`.
-"""
+=#
 struct all_data{Tv<:AbstractFloat,TA,TB,TC,TQ,TS,TR,Tq,Tr,Tx}
     n::Int
     m::Int
@@ -48,6 +48,7 @@ end
 
 struct solver_cache{Tv<:AbstractFloat,Td,Tf,TRhsTop,TRhsLower,TSolTop}
     data::Td
+    vars::prob_vars{Tv}
     factorization::Tf
     rhs::Vector{Tv}
     sol::Vector{Tv}

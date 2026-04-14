@@ -236,7 +236,8 @@ function solve_supply_chain_management_ocp(; n::Int=20, T::Int=20, numsource::In
     prox_operator! = supply_chain_proximal_factory!(C, Ub, idx_source, idx_depart)
 
     data = OptimalControl_OperatorSplitting.all_data(A, B, c, phi[1], phi[2], phi[3], phi[4], phi[5], x0; rho=rho, alpha=1.8)
-    x_opt, u_opt, _ = OptimalControl_OperatorSplitting.solve(data, prox_operator!; max_iters=max_iters)
+    cache = OptimalControl_OperatorSplitting.setup_cache(data)
+    x_opt, u_opt, _ = OptimalControl_OperatorSplitting.solve(cache, prox_operator!; max_iters=max_iters)
 
     return x_opt, u_opt
 end

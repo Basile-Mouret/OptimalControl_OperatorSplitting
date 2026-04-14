@@ -1,3 +1,9 @@
+#=
+Box-constrained quadratic optimal-control example.
+
+Builds a small toy problem, solves it with the analytical box proximal step,
+and also provides an Ipopt-based proximal step for comparison.
+=#
 using BenchmarkTools
 using Ipopt
 using JuMP
@@ -58,35 +64,41 @@ function build_box_constrained_data(; n=4, m=2, T=20, rho=50.0)
     return all_data(A, B, c, Q, S, R, q, r, x0; rho=rho)
 end
 
-function solve_box_constrained_ocp(data; max_iters=50)
-    return solve(data, box_proximal!; max_iters=max_iters)
+function build_box_constrained_cache(; n=4, m=2, T=20, rho=50.0)
+    data = build_box_constrained_data(n=n, m=m, T=T, rho=rho)
+    return setup_cache(data)
+end
+
+function solve_box_constrained_ocp(cache; max_iters=50)
+    return solve(cache, box_proximal!; max_iters=max_iters)
 end
 
 function solve_box_constrained_ocp(; max_iters=50, rho=50.0)
-    data = build_box_constrained_data(rho=rho)
-    return solve_box_constrained_ocp(data; max_iters=max_iters)
+    cache = build_box_constrained_cache(rho=rho)
+    return solve_box_constrained_ocp(cache; max_iters=max_iters)
 end
 
-function solve_box_constrained_ocp_ipopt(data; max_iters=50)
-    return solve(data, ipopt_box_proximal!; max_iters=max_iters)
+function solve_box_constrained_ocp_ipopt(cache; max_iters=50)
+    return solve(cache, ipopt_box_proximal!; max_iters=max_iters)
 end
 
 function solve_box_constrained_ocp_ipopt(; max_iters=50, rho=50.0)
-    data = build_box_constrained_data(rho=rho)
-    return solve_box_constrained_ocp_ipopt(data; max_iters=max_iters)
+    cache = build_box_constrained_cache(rho=rho)
+    return solve_box_constrained_ocp_ipopt(cache; max_iters=max_iters)
 end
 
 function main()
-    data = build_box_constrained_data()
+    analytical_cache = build_box_constrained_cache()
+    ipopt_cache = build_box_constrained_cache()
 
     println("Benchmarking analytical proximal step...")
-    @btime solve_box_constrained_ocp($data)
-    _, _, tt = solve_box_constrained_ocp(data)
+    @btime solve_box_constrained_ocp($analytical_cache)
+    _, _, tt = solve_box_constrained_ocp(analytical_cache)
     println(tt)
 
     println("\nBenchmarking Ipopt proximal step...")
-    @btime solve_box_constrained_ocp_ipopt($data)
-    _, _, tt_ipopt = solve_box_constrained_ocp_ipopt(data)
+    @btime solve_box_constrained_ocp_ipopt($ipopt_cache)
+    _, _, tt_ipopt = solve_box_constrained_ocp_ipopt(ipopt_cache)
     println(tt_ipopt)
 end
 
