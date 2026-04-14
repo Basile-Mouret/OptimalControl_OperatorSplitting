@@ -1,3 +1,9 @@
+#=
+Cache construction.
+
+Builds the reusable KKT factorization and persistent work buffers used for
+cold starts and repeated warm-started solves.
+=#
 function _set_rhs_lower!(cache::solver_cache)
     data = cache.data
     copyto!(cache.rhs_lower, 1, data.x_init, 1, data.n)
@@ -18,9 +24,11 @@ function setup_cache(data::all_data)
     rhs_top = reshape(view(rhs, 1:dim_w), data.n + data.m, data.T + 1)
     rhs_lower = view(rhs, (dim_w + 1):data.nc)
     sol_top = reshape(view(sol, 1:dim_w), data.n + data.m, data.T + 1)
+    vars = prob_vars(data)
 
     cache = solver_cache(
         data,
+        vars,
         ldlt(_assemble_kkt(data)),
         rhs,
         sol,

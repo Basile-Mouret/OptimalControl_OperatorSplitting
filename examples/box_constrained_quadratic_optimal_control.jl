@@ -1,21 +1,47 @@
-using BenchmarkTools
-using Ipopt
-using JuMP
+#=
+Box-constrained quadratic optimal-control example.
+
+Builds a random box-constrained problem and solves it with the analytical
+proximal step.
+=#
 using LinearAlgebra
+using Random
 using OptimalControl_OperatorSplitting
 
-function box_constrained_quadratic_ocp(n, m, T)
-    A_rand = randn(n, n)
-    B = randn(n, m)
+include(joinpath(@__DIR__, "common.jl"))
 
+function box_size_levels(size::String)
+    if size == "small"
+        return (n=5, m=2, T=10, rho=50.0)
+    elseif size == "medium"
+        return (n=20, m=5, T=20, rho=50.0)
+    elseif size == "large"
+        return (n=50, m=20, T=30, rho=50.0)
+    else
+        error("Invalid size. Choose from 'small', 'medium', or 'large'.")
+    end
+end
+
+function box_constrained_quadratic_ocp(n, m, T; seed=0)
+    Random.seed!(seed)
+
+    A_rand = randn(n, n)
     max_eig = maximum(abs.(eigvals(A_rand)))
     A = A_rand ./ max_eig
 
-    c = zeros(n, T)
-    x0 = randn(n) * 10.0
+    B = randn(n, m)
+    B .*= 1.1 / maximum(svdvals(B))
 
-    Q = Matrix(1.0 * I(n))
-    R = Matrix(0.1 * I(m))
+    c = zeros(n, T)
+    x0 = 5.0 .* randn(n)
+
+    mat = randn(n + m, n + m)
+    mat = mat * mat'
+    mat[1:n, (n + 1):end] .= 0.0
+    mat[(n + 1):end, 1:n] .= 0.0
+
+    Q = mat[1:n, 1:n]
+    R = mat[(n + 1):end, (n + 1):end]
     S = zeros(n, m)
 
     q = zeros(n, T + 1)
@@ -29,65 +55,37 @@ function box_proximal!(x_tilde, u_tilde, v, w, rho)
     u_tilde .= clamp.(w, -1.0, 1.0)
 end
 
-function ipopt_box_proximal!(x_tilde, u_tilde, v, w, rho)
-    n, num_steps = size(v)
-    m = size(w, 1)
-
-    Threads.@threads for t in 1:num_steps
-        model = Model(Ipopt.Optimizer)
-        set_silent(model)
-
-        @variable(model, xt[1:n])
-        @variable(model, ut[1:m])
-        @constraint(model, -1.0 .<= ut .<= 1.0)
-        @objective(model, Min,
-            (rho / 2.0) * (
-                sum((xt[i] - v[i, t])^2 for i in 1:n) +
-                sum((ut[j] - w[j, t])^2 for j in 1:m)
-            )
-        )
-
-        optimize!(model)
-        x_tilde[:, t] .= value.(xt)
-        u_tilde[:, t] .= value.(ut)
-    end
-end
-
-function build_box_constrained_data(; n=4, m=2, T=20, rho=50.0)
-    A, B, c, Q, S, R, q, r, x0 = box_constrained_quadratic_ocp(n, m, T)
+function build_box_constrained_data(; n=4, m=2, T=20, rho=50.0, seed=0)
+    A, B, c, Q, S, R, q, r, x0 = box_constrained_quadratic_ocp(n, m, T; seed=seed)
     return all_data(A, B, c, Q, S, R, q, r, x0; rho=rho)
 end
 
-function solve_box_constrained_ocp(data; max_iters=50)
-    return solve(data, box_proximal!; max_iters=max_iters)
+function build_box_constrained_cache(; n=4, m=2, T=20, rho=50.0, seed=0)
+    data = build_box_constrained_data(n=n, m=m, T=T, rho=rho, seed=seed)
+    return setup_cache(data)
 end
 
-function solve_box_constrained_ocp(; max_iters=50, rho=50.0)
-    data = build_box_constrained_data(rho=rho)
-    return solve_box_constrained_ocp(data; max_iters=max_iters)
+function solve_box_constrained_ocp(cache; max_iters=3000)
+    return solve(cache, box_proximal!; max_iters=max_iters)
 end
 
-function solve_box_constrained_ocp_ipopt(data; max_iters=50)
-    return solve(data, ipopt_box_proximal!; max_iters=max_iters)
-end
-
-function solve_box_constrained_ocp_ipopt(; max_iters=50, rho=50.0)
-    data = build_box_constrained_data(rho=rho)
-    return solve_box_constrained_ocp_ipopt(data; max_iters=max_iters)
+function solve_box_constrained_ocp(; n=5, m=2, T=10, max_iters=3000, rho=50.0, seed=0)
+    cache = build_box_constrained_cache(n=n, m=m, T=T, rho=rho, seed=seed)
+    return solve_box_constrained_ocp(cache; max_iters=max_iters)
 end
 
 function main()
-    data = build_box_constrained_data()
+    size = parse_size_arg()
+    sizes = box_size_levels(size)
 
-    println("Benchmarking analytical proximal step...")
-    @btime solve_box_constrained_ocp($data)
-    _, _, tt = solve_box_constrained_ocp(data)
-    println(tt)
-
-    println("\nBenchmarking Ipopt proximal step...")
-    @btime solve_box_constrained_ocp_ipopt($data)
-    _, _, tt_ipopt = solve_box_constrained_ocp_ipopt(data)
-    println(tt_ipopt)
+    println("Running box-constrained quadratic optimal control ($size)")
+    _, _, tt = solve_box_constrained_ocp(
+        n=sizes.n,
+        m=sizes.m,
+        T=sizes.T,
+        rho=sizes.rho,
+    )
+    display(tt)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
