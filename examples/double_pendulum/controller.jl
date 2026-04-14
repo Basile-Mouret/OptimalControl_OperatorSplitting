@@ -261,17 +261,18 @@ function build_problem_data(controller::HybridController, state::AbstractVector)
 end
 
 function warm_start!(controller::HybridController, data, state::AbstractVector)
-    if controller.solver_vars === nothing
-        controller.solver_vars = prob_vars(data)
-    end
-
     vars = controller.solver_vars
-    vars.x .= controller.nominal_states
-    vars.x_t .= controller.nominal_states
-    vars.u .= controller.nominal_controls
-    vars.u_t .= controller.nominal_controls
-    vars.x[:, 1] .= state
-    vars.x_t[:, 1] .= state
+    n = data.n
+
+    vec_nominal_states = vec(controller.nominal_states)
+    vec_nominal_controls = vec(controller.nominal_controls)
+
+    vars.x .= vec_nominal_states
+    vars.x_t .= vec_nominal_states
+    vars.u .= vec_nominal_controls
+    vars.u_t .= vec_nominal_controls
+    copyto!(vars.x, 1, state, 1, n)
+    copyto!(vars.x_t, 1, state, 1, n)
     fill!(vars.z, 0.0)
     fill!(vars.y, 0.0)
     return vars
@@ -303,18 +304,30 @@ end
 
 function stabilize_force!(controller::HybridController, state::AbstractVector)
     data = build_problem_data(controller, state)
-    vars = warm_start!(controller, data, state)
     cache = setup_cache(data)
-    timings = solve!(vars, cache, controller.prox_operator!; max_iters=controller.config.max_iters)
+    warm_start!(controller, data, state)
+    cache = OptimalControl_OperatorSplitting.solver_cache(
+        cache.data,
+        controller.solver_vars,
+        cache.factorization,
+        cache.rhs,
+        cache.sol,
+        cache.rhs_lower,
+        cache.v,
+        cache.w,
+        cache.x_t_prev,
+        cache.u_t_prev,
+    )
+    x_t, u_t, timings = solve(cache, controller.prox_operator!; max_iters=controller.config.max_iters)
     fallback_force = fallback_balance_force(controller, state)
 
     controller.last_solver_ms = timings.total_time
     controller.last_iterations = timings.itns
     controller.last_converged = timings.converged
-    controller.nominal_states .= vars.x_t
-    controller.nominal_controls .= vars.u_t
+    controller.nominal_states .= x_t
+    controller.nominal_controls .= u_t
 
-    command = vars.u_t[1, 1]
+    command = u_t[1, 1]
     if !isfinite(command)
         command = fallback_force
     elseif timings.converged

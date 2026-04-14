@@ -51,7 +51,7 @@ function julia_benchmark_code(script::String, loader::String, size::String)
         fill!(vars.u_t, 0.0)
         fill!(vars.z, 0.0)
         fill!(vars.y, 0.0)
-        vars.x_t[:, 1] .= cache.data.x_init
+        copyto!(vars.x_t, 1, cache.data.x_init, 1, cache.data.n)
         nothing
     end
 
@@ -159,7 +159,7 @@ function main()
         )
     end
 
-    write(joinpath(@__DIR__, "c_vs_julia_examples.md"), String(take!(io)))
+    write(joinpath(ROOT, "report", "c_vs_julia_examples.md"), String(take!(io)))
 end
 
 main()
