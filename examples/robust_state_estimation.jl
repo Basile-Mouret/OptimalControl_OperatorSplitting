@@ -1,7 +1,8 @@
 using LinearAlgebra
 using Random
-using BenchmarkTools
 using OptimalControl_OperatorSplitting
+
+include(joinpath(@__DIR__, "common.jl"))
 
 function robust_size_levels(size::String)
     if size == "small"
@@ -128,14 +129,13 @@ function solve_robust_state_estimation_size(size::String; max_iters::Int=200, rh
     return solve_robust_state_estimation_ocp(n=n, m=m, p=p, T=T, max_iters=max_iters, rho=rho, seed=seed)
 end
 
-println("Benchmarking Robust State Estimation... (Small: n=10, m=10, p=5, T=30)")
-x_opt, u_opt, ym, tt = solve_robust_state_estimation_size("small")
-display(tt)
+function main()
+    size = parse_size_arg()
+    println("Running robust state estimation ($size)")
+    _, _, _, tt = solve_robust_state_estimation_size(size)
+    display(tt)
+end
 
-println("Benchmarking Robust State Estimation... (Medium: n=30, m=30, p=10, T=60)")
-x_opt, u_opt, ym, tt = solve_robust_state_estimation_size("medium")
-display(tt)
-
-println("Benchmarking Robust State Estimation... (Large: n=50, m=50, p=20, T=100)")
-x_opt, u_opt, ym, tt = solve_robust_state_estimation_size("large")
-display(tt)
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end

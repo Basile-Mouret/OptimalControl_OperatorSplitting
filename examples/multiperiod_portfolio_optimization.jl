@@ -1,9 +1,20 @@
 using LinearAlgebra
 using Random
-using JuMP
-using BenchmarkTools
-using Ipopt
 using OptimalControl_OperatorSplitting
+
+include(joinpath(@__DIR__, "common.jl"))
+
+function portfolio_size_levels(size::String)
+    if size == "small"
+        return (n=10, T=30, rho=0.1)
+    elseif size == "medium"
+        return (n=30, T=60, rho=0.1)
+    elseif size == "large"
+        return (n=50, T=100, rho=0.1)
+    else
+        error("Invalid size. Choose from 'small', 'medium', or 'large'.")
+    end
+end
 
 """
 Generate one instance of the OSC multiperiod portfolio example.
@@ -110,17 +121,18 @@ function solve_multiperiod_portfolio_ocp(; n::Int=30, T::Int=60, max_iters::Int=
 	return x_opt, u_opt, tt
 end
 
-# Small test n=10 T=30
-println("Benchmarking Multiperiod Portfolio Optimization... (Small : n=10, T=30)")
-x_opt, u_opt, tt = solve_multiperiod_portfolio_ocp(n=10, T=30)
-display(tt)
+function solve_multiperiod_portfolio_size(size::String; max_iters::Int=27, seed::Int=0)
+	sizes = portfolio_size_levels(size)
+	return solve_multiperiod_portfolio_ocp(n=sizes.n, T=sizes.T, max_iters=max_iters, rho=sizes.rho, seed=seed)
+end
 
-# Medium test n=30 T=60
-println("Benchmarking Multiperiod Portfolio Optimization... (n=30, T=60)")
-x_opt, u_opt, tt = solve_multiperiod_portfolio_ocp(n=30, T=60)
-display(tt)
+function main()
+	size = parse_size_arg()
+	println("Running multiperiod portfolio optimization ($size)")
+	_, _, tt = solve_multiperiod_portfolio_size(size)
+	display(tt)
+end
 
-# Large test n=50 T=100
-println("Benchmarking Multiperiod Portfolio Optimization... (Large : n=50, T=100)")
-x_opt, u_opt, tt = solve_multiperiod_portfolio_ocp(n=50, T=100)
-display(tt)
+if abspath(PROGRAM_FILE) == @__FILE__
+	main()
+end

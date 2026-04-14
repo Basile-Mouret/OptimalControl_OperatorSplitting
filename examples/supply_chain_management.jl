@@ -1,7 +1,8 @@
 using LinearAlgebra
 using Random
-using BenchmarkTools
 using OptimalControl_OperatorSplitting
+
+include(joinpath(@__DIR__, "common.jl"))
 
 """
 Return the paper's benchmark settings for the supply-chain example.
@@ -280,45 +281,13 @@ function solve_supply_chain_management_size(size::String; max_iters::Int=300, se
     )
 end
 
-println("Benchmarking Supply Chain Management... (Small: n=5, m=25, T=20)")
-sizes = supply_chain_size_levels("small")
-x_opt, u_opt, tt = solve_supply_chain_management_ocp(
-    n=sizes.n,
-    T=sizes.T,
-    numsource=sizes.numsource,
-    numsink=sizes.numsink,
-    dist=sizes.dist,
-    max_iters=300,
-    rho=sizes.rho,
-    seed=0,
-)
-display(tt)
+function main()
+    size = parse_size_arg()
+    println("Running supply chain management ($size)")
+    _, _, tt = solve_supply_chain_management_size(size)
+    display(tt)
+end
 
-println("Benchmarking Supply Chain Management... (Medium: n=20, m=118, T=20)")
-sizes = supply_chain_size_levels("medium")
-x_opt, u_opt, tt = solve_supply_chain_management_ocp(
-    n=sizes.n,
-    T=sizes.T,
-    numsource=sizes.numsource,
-    numsink=sizes.numsink,
-    dist=sizes.dist,
-    max_iters=300,
-    rho=sizes.rho,
-    seed=0,
-)
-display(tt)
-
-println("Benchmarking Supply Chain Management... (Large: n=40, m=380, T=20)")
-sizes = supply_chain_size_levels("large")
-x_opt, u_opt, tt = solve_supply_chain_management_ocp(
-    n=sizes.n,
-    T=sizes.T,
-    numsource=sizes.numsource,
-    numsink=sizes.numsink,
-    dist=sizes.dist,
-    max_iters=300,
-    rho=sizes.rho,
-    seed=0,
-)
-display(tt)
-
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end
