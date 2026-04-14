@@ -1,8 +1,3 @@
-- data :
-    - parser
-    - use their generator 
-- cold / warm starts : 
-  - add helpers
 - examples : 
  - julia vs c
  - bonus : other methods
