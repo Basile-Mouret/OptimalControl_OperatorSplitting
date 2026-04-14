@@ -17,13 +17,19 @@
 //-------------------------------------
 // Content
 //
+= Introduction
 
-#nonumber[= Nouveau rapport]
-
-PLACE HOLDER
+#include "chapters/introduction.typ"
 
 
-= Temp
+= Method
 
-PLACE HOLDER
+#include "chapters/method.typ"
 
+= Results
+
+#include "chapters/results.typ"
+
+= Conclusion
+
+#include "chapters/conclusion.typ"
