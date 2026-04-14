@@ -57,6 +57,11 @@ function julia_benchmark_code(script::String, loader::String, size::String)
 
     function main()
         data, prox_operator! = $loader(\"$size\")
+
+        warm_cache = setup_cache(data)
+        reset_cache!(warm_cache)
+        solve(warm_cache, prox_operator!; max_iters=1)
+
         setup_start = time_ns()
         cache = setup_cache(data)
         setup_ms = (time_ns() - setup_start) / 1e6
@@ -133,9 +138,9 @@ function main()
     println(io)
     println(io, "Notes:")
     println(io, "- C numbers come from `run_osc` and are the reported average over 100 cold starts.")
-    println(io, "- Julia numbers are the average over 100 cold starts on the same fixture data, with the cache state reset between solves.")
+    println(io, "- Julia numbers are warmed first, then averaged over 100 cold starts on the same fixture data, with the cache state reset between solves.")
     println(io, "- `C factor ms` is the factorization time reported by the C code.")
-    println(io, "- `Julia setup ms` is one `setup_cache(data)` call and therefore includes Julia-side KKT assembly plus factorization.")
+    println(io, "- `Julia setup ms` is one warmed `setup_cache(data)` call and therefore includes Julia-side KKT assembly plus factorization.")
     println(io)
     println(io, "| Example | Size | C factor ms | Julia setup ms | C iters | Julia iters | Δ iters | C total ms | Julia total ms | Δ total ms | Julia/C total | C lin ms/iter | Julia lin ms/iter | C prox ms/iter | Julia prox ms/iter | Julia converged |")
     println(io, "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|")
