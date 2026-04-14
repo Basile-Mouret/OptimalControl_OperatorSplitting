@@ -4,12 +4,16 @@
         cache = setup_cache(data)
 
         x1, u1, tt1 = solve(cache, box_prox!; max_iters=3000)
+        x1_saved = copy(x1)
+        u1_saved = copy(u1)
         x2, u2, tt2 = solve(cache, box_prox!; max_iters=3000)
 
         @test tt1.converged
         @test tt2.converged
-        @test max_abs_diff(x1, x2) <= 1e-10
-        @test max_abs_diff(u1, u2) <= 1e-10
+        @test max_abs_diff(x1, x1_saved) == 0.0
+        @test max_abs_diff(u1, u1_saved) == 0.0
+        @test max_abs_diff(x1, x2) <= 1e-6
+        @test max_abs_diff(u1, u2) <= 1e-6
         @test tt2.itns <= tt1.itns
         @test tt2.itns <= 2
     end

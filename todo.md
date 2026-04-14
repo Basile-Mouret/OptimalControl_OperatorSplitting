@@ -2,5 +2,7 @@
  - julia vs c
  - bonus : other methods
 
-- testing
+- docs : 
+  - add solving docs
+  - testing docs (for devs, in setup.md)
 - report

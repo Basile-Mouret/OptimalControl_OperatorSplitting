@@ -9,6 +9,7 @@ residual-based stopping and timing collection.
 
 Solve using a prebuilt cache. A fresh cache gives a cold start; repeated calls
 on the same cache reuse the internal ADMM state and therefore warm start.
+Returns copies of the current trajectories together with the timing data.
 """
 function solve(cache::solver_cache, prox_operator!; max_iters=3000)
     data = cache.data
@@ -62,5 +63,5 @@ function solve(cache::solver_cache, prox_operator!; max_iters=3000)
     end
 
     tt.total_time = _elapsed_ms(total_start)
-    return vars.x_t, vars.u_t, tt
+    return copy(vars.x_t), copy(vars.u_t), tt
 end
