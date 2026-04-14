@@ -3,14 +3,14 @@
 
 #show: clean-math-presentation-theme.with(
   config-info(
-    title: [Statistical and Neural Approaches to 3D Femur Modeling],
+    title: [Optimal Control Operators Splitting],
     authors: (
       (name: "Boyer Timothé"),
       (name: "Hacini Malik"),
       (name: "Lainé Martin"),
       (name: "Mouret Basile"),
     ),
-    date: datetime(year: 2026, month: 01, day:23),
+    date: datetime(year: 2026, month: 04, day:22),
   ),
   config-common(
     slide-level: 3,
@@ -19,3 +19,7 @@
   ),
   progress-bar: true,
 )
+
+#title-slide()
+
+
