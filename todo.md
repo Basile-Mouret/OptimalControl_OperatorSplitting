@@ -1,10 +1,9 @@
 - data :
     - parser
     - use their generator 
-- refactor : 
-  - assembly funcs and convergence func in utils
-
-- benchmarks : 
+- cold / warm starts : 
+  - add helpers
+- examples : 
  - julia vs c
  - bonus : other methods
 

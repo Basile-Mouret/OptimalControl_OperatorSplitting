@@ -1,3 +1,9 @@
+"""
+Cache construction.
+
+Builds the reusable KKT factorization and persistent work buffers used for
+cold starts, repeated solves, and warm-started solves.
+"""
 function _set_rhs_lower!(cache::solver_cache)
     data = cache.data
     copyto!(cache.rhs_lower, 1, data.x_init, 1, data.n)
