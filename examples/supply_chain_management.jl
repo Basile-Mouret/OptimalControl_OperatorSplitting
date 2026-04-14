@@ -267,7 +267,7 @@ function solve_supply_chain_management_ocp(; n::Int=20, T::Int=20, numsource::In
     return x_opt, u_opt, tt
 end
 
-function solve_supply_chain_management_size(size::String; max_iters::Int=3000, seed::Int=0)
+function load_supply_chain_fixture(size::String)
     data = load_c_fixture_data("sup_ch", size)
     tokens = fixture_tokens("sup_ch", size, "data_prox")
 
@@ -288,6 +288,11 @@ function solve_supply_chain_management_size(size::String; max_iters::Int=3000, s
     end
 
     prox_operator! = supply_chain_proximal_factory!(C, U, idx_source, idx_depart)
+    return data, prox_operator!
+end
+
+function solve_supply_chain_management_size(size::String; max_iters::Int=3000, seed::Int=0)
+    data, prox_operator! = load_supply_chain_fixture(size)
     cache = setup_cache(data)
     return solve(cache, prox_operator!; max_iters=max_iters)
 end
