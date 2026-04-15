@@ -19,21 +19,23 @@
 //
 = Introduction
 
-#include "chapters/introduction.typ"
+#include "chapters/introduction.typ" //Martin
 
 
-= Method
+= Method // Malik
 
 #include "chapters/method.typ"
 
+= Implementation
+
+#include "chapters/implementation.typ" // Basile
+
 = Results
 
-#include "chapters/results.typ"
+#include "chapters/results.typ" // Tim
 
-= Simulation
 
-#include "chapters/simulation.typ"
 
 = Conclusion
 
-#include "chapters/conclusion.typ"
+#include "chapters/conclusion.typ" // Martin
