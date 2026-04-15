@@ -51,7 +51,7 @@ mutable struct HybridController
     feedback_gain::Matrix{Float64}
     nominal_states::Matrix{Float64}
     nominal_controls::Matrix{Float64}
-    solver_vars::Any
+    solver_cache::Any
     prox_operator!::Function
     mode::Symbol
     energy_gain::Float64
@@ -66,11 +66,57 @@ mutable struct HybridController
     last_energy_error::Float64
 end
 
+function build_solver_data(config::MPCConfig, a_stage::AbstractMatrix, b_stage::AbstractMatrix, c_stage::AbstractVector, x_init::AbstractVector)
+    horizon = config.horizon
+    n = length(x_init)
+
+    a_matrix = zeros(n, n, horizon)
+    b_matrix = zeros(n, 1, horizon)
+    affine_term = zeros(n, horizon)
+
+    for stage in 1:horizon
+        a_matrix[:, :, stage] .= a_stage
+        b_matrix[:, :, stage] .= b_stage
+        affine_term[:, stage] .= c_stage
+    end
+
+    q_matrix = zeros(n, n, horizon + 1)
+    r_matrix = zeros(1, 1, horizon + 1)
+    s_matrix = zeros(n, 1, horizon + 1)
+    q_vector = zeros(n, horizon + 1)
+    r_vector = zeros(1, horizon + 1)
+
+    for stage in 1:horizon
+        q_matrix[:, :, stage] .= config.stage_state_weight
+        r_matrix[:, :, stage] .= config.stage_input_weight
+    end
+
+    q_matrix[:, :, end] .= config.terminal_state_weight
+    r_matrix[:, :, end] .= config.stage_input_weight
+
+    return all_data(
+        a_matrix,
+        b_matrix,
+        affine_term,
+        q_matrix,
+        s_matrix,
+        r_matrix,
+        q_vector,
+        r_vector,
+        copy(x_init);
+        rho=config.rho,
+        alpha=1.0,
+        eps_abs=config.eps_abs,
+        eps_rel=config.eps_rel,
+    )
+end
+
 function build_hybrid_controller(params::CartDoublePendulumParams; config=default_mpc_config())
     n = 6
     num_cols = config.horizon + 1
     balance_a, balance_b, balance_c = linearize_dynamics(params, zeros(n), 0.0, config.dt)
     feedback_gain = local_lqr_gain(balance_a, balance_b, config.terminal_state_weight, config.stage_input_weight)
+    solver_cache = setup_cache(build_solver_data(config, balance_a, balance_b, balance_c, zeros(n)))
     prox_operator! = let max_force = config.max_force
         function (x_tilde, u_tilde, v, w, rho)
             x_tilde .= v
@@ -88,7 +134,7 @@ function build_hybrid_controller(params::CartDoublePendulumParams; config=defaul
         Matrix(feedback_gain),
         zeros(n, num_cols),
         zeros(1, num_cols),
-        nothing,
+        solver_cache,
         prox_operator!,
         :swing_up,
         0.22,
@@ -206,76 +252,46 @@ function local_lqr_gain(a_matrix::AbstractMatrix, b_matrix::AbstractMatrix, q_ma
     return (r_matrix + b_matrix' * p_matrix * b_matrix) \ (b_matrix' * p_matrix * a_matrix)
 end
 
-function build_problem_data(controller::HybridController, state::AbstractVector)
-    cfg = controller.config
-    horizon = cfg.horizon
-    n = length(state)
-
+function prepare_solver_cache!(controller::HybridController, state::AbstractVector)
     shift_controls!(controller)
-    a_stage = controller.balance_a
-    b_stage = controller.balance_b
-    c_stage = controller.balance_c
     controller.last_linearization_ms = 0.0
 
-    controller.nominal_states .= rollout_linear_nominal(state, controller.nominal_controls, a_stage, b_stage, c_stage)
-
-    a_matrix = zeros(n, n, horizon)
-    b_matrix = zeros(n, 1, horizon)
-    affine_term = zeros(n, horizon)
-
-    for stage in 1:horizon
-        a_matrix[:, :, stage] .= a_stage
-        b_matrix[:, :, stage] .= b_stage
-        affine_term[:, stage] .= c_stage
-    end
-
-    q_matrix = zeros(n, n, horizon + 1)
-    r_matrix = zeros(1, 1, horizon + 1)
-    s_matrix = zeros(n, 1, horizon + 1)
-    q_vector = zeros(n, horizon + 1)
-    r_vector = zeros(1, horizon + 1)
-
-    for stage in 1:horizon
-        q_matrix[:, :, stage] .= cfg.stage_state_weight
-        r_matrix[:, :, stage] .= cfg.stage_input_weight
-    end
-
-    q_matrix[:, :, end] .= cfg.terminal_state_weight
-    r_matrix[:, :, end] .= cfg.stage_input_weight
-
-    return all_data(
-        a_matrix,
-        b_matrix,
-        affine_term,
-        q_matrix,
-        s_matrix,
-        r_matrix,
-        q_vector,
-        r_vector,
-        copy(state);
-        rho=cfg.rho,
-        alpha=1.0,
-        eps_abs=cfg.eps_abs,
-        eps_rel=cfg.eps_rel,
+    controller.nominal_states .= rollout_linear_nominal(
+        state,
+        controller.nominal_controls,
+        controller.balance_a,
+        controller.balance_b,
+        controller.balance_c,
     )
-end
 
-function warm_start!(controller::HybridController, data, state::AbstractVector)
-    vars = controller.solver_vars
-    n = data.n
-
-    vec_nominal_states = vec(controller.nominal_states)
-    vec_nominal_controls = vec(controller.nominal_controls)
-
-    vars.x .= vec_nominal_states
-    vars.x_t .= vec_nominal_states
-    vars.u .= vec_nominal_controls
-    vars.u_t .= vec_nominal_controls
-    copyto!(vars.x, 1, state, 1, n)
-    copyto!(vars.x_t, 1, state, 1, n)
+    cache = controller.solver_cache
+    cache.data.x_init .= state
+    vars = cache.vars
+    vars.x .= controller.nominal_states
+    vars.x_t .= controller.nominal_states
+    vars.u .= controller.nominal_controls
+    vars.u_t .= controller.nominal_controls
+    vars.x[:, 1] .= state
+    vars.x_t[:, 1] .= state
     fill!(vars.z, 0.0)
     fill!(vars.y, 0.0)
-    return vars
+    return cache
+end
+
+function reset_solver_state!(controller::HybridController, state::AbstractVector)
+    cache = controller.solver_cache
+    cache.data.x_init .= state
+
+    vars = cache.vars
+    fill!(vars.x, 0.0)
+    fill!(vars.u, 0.0)
+    fill!(vars.x_t, 0.0)
+    fill!(vars.u_t, 0.0)
+    fill!(vars.z, 0.0)
+    fill!(vars.y, 0.0)
+    vars.x[:, 1] .= state
+    vars.x_t[:, 1] .= state
+    return controller
 end
 
 function fallback_balance_force(controller::HybridController, state::AbstractVector)
@@ -303,21 +319,7 @@ function swing_up_force(controller::HybridController, state::AbstractVector)
 end
 
 function stabilize_force!(controller::HybridController, state::AbstractVector)
-    data = build_problem_data(controller, state)
-    cache = setup_cache(data)
-    warm_start!(controller, data, state)
-    cache = OptimalControl_OperatorSplitting.solver_cache(
-        cache.data,
-        controller.solver_vars,
-        cache.factorization,
-        cache.rhs,
-        cache.sol,
-        cache.rhs_lower,
-        cache.v,
-        cache.w,
-        cache.x_t_prev,
-        cache.u_t_prev,
-    )
+    cache = prepare_solver_cache!(controller, state)
     x_t, u_t, timings = solve(cache, controller.prox_operator!; max_iters=controller.config.max_iters)
     fallback_force = fallback_balance_force(controller, state)
 
@@ -384,6 +386,6 @@ function warmup!(controller::HybridController)
     controller.last_energy_error = 0.0
     fill!(controller.nominal_controls, 0.0)
     fill!(controller.nominal_states, 0.0)
-    controller.solver_vars = nothing
+    reset_solver_state!(controller, zeros(size(controller.nominal_states, 1)))
     return controller
 end
