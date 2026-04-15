@@ -13,5 +13,3 @@ logs/*
 # Python simulation
 scripts/__pycache__/
 .venv/
-
-.gitmodules
