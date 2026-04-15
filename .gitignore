@@ -9,3 +9,7 @@ data/*
 logs/*
 !logs/.gitkeep
 
+
+# Python simulation
+scripts/__pycache__/
+.venv/
