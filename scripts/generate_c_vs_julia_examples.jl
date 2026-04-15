@@ -2,10 +2,10 @@ using Printf
 
 const ROOT = normpath(joinpath(@__DIR__, ".."))
 const EXAMPLES = [
-    ("box", "box_constrained_quadratic_optimal_control.jl", "load_box_fixture"),
-    ("finance", "multiperiod_portfolio_optimization.jl", "load_multiperiod_portfolio_fixture"),
-    ("rob_est", "robust_state_estimation.jl", "load_robust_state_estimation_fixture"),
-    ("sup_ch", "supply_chain_management.jl", "load_supply_chain_fixture"),
+    ("box", "box_constrained_quadratic_optimal_control.jl"),
+    ("finance", "multiperiod_portfolio_optimization.jl"),
+    ("rob_est", "robust_state_estimation.jl"),
+    ("sup_ch", "supply_chain_management.jl"),
 ]
 const SIZES = ["small", "medium", "large"]
 const N_COLD = 100
@@ -40,7 +40,7 @@ function run_c(example::String, size::String)
     return parse_c_stats(output)
 end
 
-function julia_benchmark_code(script::String, loader::String, size::String)
+function julia_benchmark_code(script::String, size::String)
     return """
     using LinearAlgebra
     using OptimalControl_OperatorSplitting
@@ -48,20 +48,8 @@ function julia_benchmark_code(script::String, loader::String, size::String)
 
     BLAS.set_num_threads(1)
 
-    function reset_cache!(cache)
-        vars = cache.vars
-        fill!(vars.x, 0.0)
-        fill!(vars.u, 0.0)
-        fill!(vars.x_t, 0.0)
-        fill!(vars.u_t, 0.0)
-        fill!(vars.z, 0.0)
-        fill!(vars.y, 0.0)
-        copyto!(vars.x_t, 1, cache.data.x_init, 1, cache.data.n)
-        nothing
-    end
-
     function main()
-        data, prox_operator! = $loader(\"$size\")
+        data, prox_operator! = load_fixture(\"$size\")
 
         warm_cache = setup_cache(data)
         reset_cache!(warm_cache)
@@ -99,12 +87,12 @@ function julia_benchmark_code(script::String, loader::String, size::String)
     """
 end
 
-function run_julia(script::String, loader::String, size::String)
+function run_julia(script::String, size::String)
     if SINGLE_THREAD
-        cmd = `julia --project=. -e $(julia_benchmark_code(script, loader, size))`
+        cmd = `julia --project=. -e $(julia_benchmark_code(script, size))`
         cmd = addenv(cmd, "JULIA_NUM_THREADS" => "1")
     else
-        cmd = `julia --project=. -e $(julia_benchmark_code(script, loader, size))`
+        cmd = `julia --project=. -e $(julia_benchmark_code(script, size))`
     end
     output = cd(ROOT) do
         read(cmd, String)
@@ -119,10 +107,10 @@ end
 function main()
     rows = NamedTuple[]
 
-    for (example, script, loader) in EXAMPLES
+    for (example, script) in EXAMPLES
         for size in SIZES
             c = run_c(example, size)
-            j = run_julia(script, loader, size)
+            j = run_julia(script, size)
             push!(rows, (
                 example=example,
                 size=size,

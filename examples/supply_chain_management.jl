@@ -1,174 +1,6 @@
-using LinearAlgebra
-using Random
 using OptimalControl_OperatorSplitting
 
 include(joinpath(@__DIR__, "common.jl"))
-
-"""
-Return the paper's benchmark settings for the supply-chain example.
-
-The inputs are:
-- `n`: number of warehouses
-- `m`: number of edges in the paper table
-- `T`: horizon length
-- `numsource`: number of source nodes
-- `numsink`: number of sink nodes
-- `dist`: graph connectivity threshold
-- `rho`: ADMM penalty parameter
-"""
-function supply_chain_size_levels(size::String)
-    if size == "small"
-        return (n=5, m=25, T=20, numsource=2, numsink=2, dist=0.6, rho=2.5)
-    elseif size == "medium"
-        return (n=20, m=118, T=20, numsource=2, numsink=2, dist=0.4, rho=2.5)
-    elseif size == "large"
-        return (n=40, m=380, T=20, numsource=2, numsink=2, dist=0.3, rho=2.5)
-    else
-        error("Invalid size. Choose from 'small', 'medium', or 'large'.")
-    end
-end
-
-function _is_connected_undirected(adj::BitMatrix)
-    n = size(adj, 1)
-    visited = falses(n)
-    queue = Vector{Int}(undef, n)
-    head = 1
-    tail = 1
-
-    queue[tail] = 1
-    visited[1] = true
-
-    while head <= tail
-        v = queue[head]
-        head += 1
-
-        @inbounds for u in 1:n
-            if adj[v, u] && !visited[u]
-                tail += 1
-                queue[tail] = u
-                visited[u] = true
-            end
-        end
-    end
-
-    return all(visited)
-end
-
-"""
-Generate one supply-chain management instance following `sup_ch/gen_data.m`.
-
-Inputs:
-- `n`: number of warehouses
-- `T`: horizon length
-- `numsource`: number of source nodes
-- `numsink`: number of sink nodes
-- `dist`: maximum edge length kept in the graph
-- `seed`: random seed
-
-Returns:
-- `phi = (Q, S, R, q, r)`
-- system matrices `A`, `B`, `c`
-- initial state `x0`
-- proximal data `C`, `U`, `idx_source`, `idx_depart`
-"""
-function supply_chain_data(n::Int, T::Int, numsource::Int, numsink::Int, dist::Float64; seed::Int=0)
-    Random.seed!(seed)
-
-    # Build a random geometric graph that includes warehouses, sources, and sinks.
-    position_nodes = rand(2, n)
-    source_pos = 0.1 .* rand(2, numsource)
-    sink_pos = 0.9 .+ 0.1 .* rand(2, numsink)
-    position = hcat(position_nodes, source_pos, sink_pos)
-
-    n_total = size(position, 2)
-    d = zeros(n_total, n_total)
-    for i in 1:n_total
-        for j in 1:n_total
-            d[i, j] = norm(view(position, :, i) - view(position, :, j), 2)
-        end
-    end
-
-    d[d .> dist] .= 0.0
-    d[(n + 1):(n + numsource), (n + 1):(n + numsource)] .= 0.0
-    d[(n + numsource + 1):end, (n + numsource + 1):end] .= 0.0
-
-    # Connectivity test on the full undirected graph.
-    adj = BitMatrix(d .> 0.0)
-    adj .|= adj'
-    if !_is_connected_undirected(adj)
-        error("Graph is not connected. Try a larger dist or a different seed.")
-    end
-
-    # Build edge-incidence structure used by OSC.
-    edges = d[1:n, 1:n]
-    edge_pairs = findall(!iszero, edges)
-    m_warehouse = length(edge_pairs)
-
-    Bminus1 = zeros(n, m_warehouse)
-    Bplus1 = zeros(n, m_warehouse)
-    v_dist = zeros(m_warehouse)
-    for (k, idx) in enumerate(edge_pairs)
-        i, j = Tuple(idx)
-        Bminus1[i, k] = 1.0
-        Bplus1[j, k] = 1.0
-        v_dist[k] = edges[i, j]
-    end
-
-    sink_pairs = findall(!iszero, d[1:n, (n + numsource + 1):end])
-    a_snk = [Tuple(id)[1] for id in sink_pairs]
-    d_sink = [d[Tuple(id)[1], n + numsource + Tuple(id)[2]] for id in sink_pairs]
-    sink = zeros(n, length(a_snk))
-    for i in 1:length(a_snk)
-        sink[a_snk[i], i] = 1.0
-    end
-
-    src_pairs = findall(!iszero, d[1:n, (n + 1):(n + numsource)])
-    a_src = [Tuple(id)[1] for id in src_pairs]
-    d_source = [d[Tuple(id)[1], n + Tuple(id)[2]] for id in src_pairs]
-    source = zeros(n, length(a_src))
-    for i in 1:length(a_src)
-        source[a_src[i], i] = 1.0
-    end
-
-    Bplus = hcat(source, Bplus1, zeros(n, length(a_snk)))
-    Bminus = hcat(zeros(n, length(a_src)), Bminus1, sink)
-    B = Bplus - Bminus
-
-    m = size(B, 2)
-    distances = vcat(d_source, v_dist, d_sink)
-
-    idx_source = findall(j -> sum(@view B[:, j]) == 1.0, 1:m)
-    idx_depart = [findall(!iszero, @view Bminus[i, :]) for i in 1:n]
-
-    C = 2.0
-    Ub = 1.0
-
-    A = Matrix{Float64}(I, n, n)
-    c = zeros(n, T)
-
-    q_t = 0.5 .* rand(n)
-    q_vec = 0.5 .* rand(n)
-    r_vec = max.(distances .+ 0.02 .* randn(m), 0.0)
-
-    if !isempty(a_snk)
-        r_vec[(end - length(a_snk) + 1):end] .= -15.0 .* (0.1 .* rand(length(a_snk)) .+ 1.0)
-    end
-    if !isempty(a_src)
-        r_vec[1:length(a_src)] .= 5.0 .* (0.1 .* rand(length(a_src)) .+ 1.0)
-    end
-
-    x0 = (C / 2.0) .* ones(n)
-
-    Q = 2.0 .* Diagonal(q_t)
-    S = zeros(n, m)
-    R = zeros(m, m)
-    q = repeat(q_vec, 1, T + 1)
-    r = repeat(r_vec, 1, T + 1)
-
-    phi = (Q, S, R, q, r)
-
-    return phi, A, B, c, x0, C, Ub, idx_source, idx_depart
-end
 
 function _test_lambda!(wi::Vector{Float64}, w_stage::AbstractVector{Float64}, v::Float64, idxs::Vector{Int}, C::Float64, U::Float64, lambda::Float64)
     sumu = 0.0
@@ -221,12 +53,6 @@ function _bisection_node!(u_stage::AbstractVector{Float64}, x_val::Base.RefValue
     return nothing
 end
 
-"""
-Proximal operator for supply-chain management (matches OSC C code).
-
-The prox step projects the state into `[0, C]` and the inputs into
-`[0, U]`, while enforcing the per-node flow balance through bisection.
-"""
 function supply_chain_proximal_factory!(C::Float64, U::Float64, idx_source::Vector{Int}, idx_depart::Vector{Vector{Int}})
     function supply_chain_proximal!(x_tilde, u_tilde, v, w, rho)
         n, num_steps = size(v)
@@ -255,19 +81,7 @@ function supply_chain_proximal_factory!(C::Float64, U::Float64, idx_source::Vect
     return supply_chain_proximal!
 end
 
-function solve_supply_chain_management_ocp(; n::Int=20, T::Int=20, numsource::Int=2, numsink::Int=2, dist::Float64=0.4, max_iters::Int=3000, rho::Float64=2.5, seed::Int=0)
-    phi, A, B, c, x0, C, Ub, idx_source, idx_depart = supply_chain_data(n, T, numsource, numsink, dist; seed=seed)
-    prox_operator! = supply_chain_proximal_factory!(C, Ub, idx_source, idx_depart)
-
-    data = OptimalControl_OperatorSplitting.all_data(A, B, c, phi[1], phi[2], phi[3], phi[4], phi[5], x0; rho=rho, alpha=1.8)
-    cache = OptimalControl_OperatorSplitting.setup_cache(data)
-    x_opt, u_opt, tt = OptimalControl_OperatorSplitting.solve(cache, prox_operator!; max_iters=max_iters)
-
-
-    return x_opt, u_opt, tt
-end
-
-function load_supply_chain_fixture(size::String)
+function load_fixture(size::String)
     data = load_c_fixture_data("sup_ch", size)
     tokens = fixture_tokens("sup_ch", size, "data_prox")
 
@@ -291,17 +105,25 @@ function load_supply_chain_fixture(size::String)
     return data, prox_operator!
 end
 
-function solve_supply_chain_management_size(size::String; max_iters::Int=3000, seed::Int=0)
-    data, prox_operator! = load_supply_chain_fixture(size)
-    cache = setup_cache(data)
-    return solve(cache, prox_operator!; max_iters=max_iters)
+function run(size::String; max_iters::Int=3000, num_cold::Int=100, num_warm::Int=100, seed::Int=0)
+    data, prox_operator! = load_fixture(size)
+    perturb! = uniform_perturbation()
+    return run(
+        data,
+        prox_operator!,
+        perturb!;
+        max_iters=max_iters,
+        num_cold=num_cold,
+        num_warm=num_warm,
+        seed=seed,
+    )
 end
 
 function main()
     size = parse_size_arg()
     println("Running supply chain management ($size)")
-    _, _, tt = solve_supply_chain_management_size(size)
-    display(tt)
+    stats = run(size)
+    print_run(stats)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
