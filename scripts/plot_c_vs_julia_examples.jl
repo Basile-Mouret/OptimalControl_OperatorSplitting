@@ -1,139 +1,108 @@
 ENV["GKSwstype"] = "100"
 
+using DelimitedFiles
 using Plots
 using Plots.PlotMeasures
 
 const ROOT = normpath(joinpath(@__DIR__, ".."))
-const REPORT = joinpath(ROOT, "report", "c_vs_julia_examples.md")
-const OUT_TIME = joinpath(ROOT, "report", "c_vs_julia_total_time.png")
-const OUT_ITERS = joinpath(ROOT, "report", "c_vs_julia_iters.png")
+const RESULTS_DIR = joinpath(ROOT, "results")
+const FIGURES_DIR = joinpath(ROOT, "report", "article", "figures")
+const COLD_CSV = joinpath(RESULTS_DIR, "c_vs_julia_cold.csv")
+const WARM_CSV = joinpath(RESULTS_DIR, "c_vs_julia_warm.csv")
 
-function parse_comparison_table(path::String)
-    lines = readlines(path)
-    header_idx = findfirst(line -> occursin("| Example |", line), lines)
-    header_idx === nothing && error("Could not find table header in $(path)")
-
+function read_csv_rows(path::String)
+    raw = readdlm(path, ','; header=true)
+    data = raw[1]
     rows = NamedTuple[]
-    for line in lines[(header_idx + 2):end]
-        line = strip(line)
-        isempty(line) && continue
-        startswith(line, "|") || continue
 
-        cols = split(line, '|')
-        cols = strip.(filter(c -> !isempty(strip(c)), cols))
-        length(cols) < 16 && continue
+    tostr(x) = x isa AbstractString ? String(x) : string(x)
 
-        example = replace(cols[1], "`" => "")
-        size = replace(cols[2], "`" => "")
-        c_iters = parse(Float64, cols[5])
-        j_iters = parse(Float64, cols[6])
-        c_total = parse(Float64, cols[8])
-        j_total = parse(Float64, cols[9])
-
+    for i in 1:size(data, 1)
         push!(rows, (
-            example=example,
-            size=size,
-            c_iters=c_iters,
-            j_iters=j_iters,
-            c_total=c_total,
-            j_total=j_total,
+            example=tostr(data[i, 1]),
+            size=tostr(data[i, 2]),
+            c_iters=parse(Float64, tostr(data[i, 3])),
+            julia_iters=parse(Float64, tostr(data[i, 4])),
+            c_total_ms=parse(Float64, tostr(data[i, 5])),
+            julia_total_ms=parse(Float64, tostr(data[i, 6])),
+            c_lin_ms=parse(Float64, tostr(data[i, 7])),
+            julia_lin_ms=parse(Float64, tostr(data[i, 8])),
+            c_prox_ms=parse(Float64, tostr(data[i, 9])),
+            julia_prox_ms=parse(Float64, tostr(data[i, 10])),
         ))
     end
 
-    isempty(rows) && error("No data rows parsed from $(path)")
     return rows
 end
 
-function _plot_skeleton(; title::String, ylabel::String, xticks)
+function _plot_skeleton(; title::String, ylabel::String, xticks, yscale=:identity)
     return plot(
         title=title,
         xlabel="problem size",
         ylabel=ylabel,
-        legend=:topright,
+        legend=:bottomright,
+        background_color_legend=:white,
+        foreground_color_legend=:black,
         xticks=xticks,
+        yscale=yscale,
         left_margin=12mm,
         bottom_margin=12mm,
     )
 end
 
-function _series_vectors(rows, example::String, sizes::Vector{String})
+function _series(rows, example::String, sizes::Vector{String}, cfield::Symbol, jfield::Symbol)
     rows_ex = filter(r -> r.example == example, rows)
     size_map = Dict(r.size => r for r in rows_ex)
-    have_all = all(s -> haskey(size_map, s), sizes)
+    all(s -> haskey(size_map, s), sizes) || return nothing
 
-    if !have_all
-        return nothing
-    end
-
-    c_total = [size_map[s].c_total for s in sizes]
-    j_total = [size_map[s].j_total for s in sizes]
-    c_iters = [size_map[s].c_iters for s in sizes]
-    j_iters = [size_map[s].j_iters for s in sizes]
-    return (c_total=c_total, j_total=j_total, c_iters=c_iters, j_iters=j_iters)
+    cvals = [getfield(size_map[s], cfield) for s in sizes]
+    jvals = [getfield(size_map[s], jfield) for s in sizes]
+    return (c=cvals, j=jvals)
 end
 
 function _add_pair!(plt, xvals, cvals, jvals, example::String, color)
-    plot!(
-        plt,
-        xvals,
-        cvals,
-        label="$(example) C",
-        marker=:circle,
-        linestyle=:solid,
-        color=color,
-    )
-    plot!(
-        plt,
-        xvals,
-        jvals,
-        label="$(example) Julia",
-        marker=:diamond,
-        linestyle=:dash,
-        color=color,
-    )
+    plot!(plt, xvals, cvals; label="$(example) C", marker=:circle, linestyle=:solid, color=color)
+    plot!(plt, xvals, jvals; label="$(example) Julia", marker=:diamond, linestyle=:dash, color=color)
     return nothing
 end
 
-function write_plots(rows)
+function write_one_plot(rows, cfield::Symbol, jfield::Symbol, title::String, ylabel::String, outname::String; logy::Bool=false)
     sizes = ["small", "medium", "large"]
     xvals = 1:length(sizes)
-    xtick_labels = (xvals, sizes)
-
-    examples = unique(row.example for row in rows)
-    sort!(examples)
-
-    default(size=(1300, 650), dpi=150)
-
+    xticks = (xvals, sizes)
+    examples = sort(unique(row.example for row in rows))
     colors = palette(:tab10, length(examples))
 
-    p_time = _plot_skeleton(
-        title="C vs Julia total time",
-        ylabel="time (ms)",
-        xticks=xtick_labels,
-    )
-    p_iters = _plot_skeleton(
-        title="C vs Julia iterations",
-        ylabel="iterations",
-        xticks=xtick_labels,
-    )
-
+    plt = _plot_skeleton(title=title, ylabel=ylabel, xticks=xticks, yscale=(logy ? :log10 : :identity))
     for (idx, example) in enumerate(examples)
-        series = _series_vectors(rows, example, sizes)
-        series === nothing && continue
-
-        _add_pair!(p_time, xvals, series.c_total, series.j_total, example, colors[idx])
-        _add_pair!(p_iters, xvals, series.c_iters, series.j_iters, example, colors[idx])
+        s = _series(rows, example, sizes, cfield, jfield)
+        s === nothing && continue
+        cvals = logy ? max.(s.c, 1e-6) : s.c
+        jvals = logy ? max.(s.j, 1e-6) : s.j
+        _add_pair!(plt, xvals, cvals, jvals, example, colors[idx])
     end
 
-    savefig(p_time, OUT_TIME)
-    savefig(p_iters, OUT_ITERS)
+    outpath = joinpath(FIGURES_DIR, outname)
+    savefig(plt, outpath)
+    println("Wrote: report/article/figures/", outname)
 end
 
 function main()
-    rows = parse_comparison_table(REPORT)
-    write_plots(rows)
-    println("Wrote: report/c_vs_julia_total_time.png")
-    println("Wrote: report/c_vs_julia_iters.png")
+    mkpath(FIGURES_DIR)
+
+    cold_rows = read_csv_rows(COLD_CSV)
+    warm_rows = read_csv_rows(WARM_CSV)
+
+    default(size=(1300, 650), dpi=150)
+
+    write_one_plot(cold_rows, :c_total_ms, :julia_total_ms, "Cold: total time", "time (ms)", "c_vs_julia_cold_total.png"; logy=true)
+    write_one_plot(warm_rows, :c_total_ms, :julia_total_ms, "Warm: total time", "time (ms)", "c_vs_julia_warm_total.png"; logy=true)
+
+    write_one_plot(cold_rows, :c_lin_ms, :julia_lin_ms, "Cold: linear solve time", "ms/iter", "c_vs_julia_cold_lin.png"; logy=true)
+    write_one_plot(warm_rows, :c_lin_ms, :julia_lin_ms, "Warm: linear solve time", "ms/iter", "c_vs_julia_warm_lin.png"; logy=true)
+
+    write_one_plot(cold_rows, :c_prox_ms, :julia_prox_ms, "Cold: prox time", "ms/iter", "c_vs_julia_cold_prox.png"; logy=true)
+    write_one_plot(warm_rows, :c_prox_ms, :julia_prox_ms, "Warm: prox time", "ms/iter", "c_vs_julia_warm_prox.png"; logy=true)
 end
 
 main()
