@@ -10,6 +10,20 @@ const FIGURES_DIR = joinpath(ROOT, "report", "article", "figures")
 const COLD_CSV = joinpath(RESULTS_DIR, "c_vs_julia_cold.csv")
 const WARM_CSV = joinpath(RESULTS_DIR, "c_vs_julia_warm.csv")
 
+# Fixed, high-contrast colors to avoid close pairs (e.g., dark/light blue).
+const EXAMPLE_COLORS = [
+    "#1F3A93", # navy
+    "#E67E22", # orange
+    "#2E8B57", # green
+    "#8E44AD", # purple
+    "#C0392B", # red
+    "#16A085", # teal
+    "#7F5539", # brown
+    "#2D2D2D", # near black
+    "#B8860B", # dark gold
+    "#D81B60", # magenta
+]
+
 function read_csv_rows(path::String)
     raw = readdlm(path, ','; header=true)
     data = raw[1]
@@ -71,7 +85,7 @@ function write_one_plot(rows, cfield::Symbol, jfield::Symbol, title::String, yla
     xvals = 1:length(sizes)
     xticks = (xvals, sizes)
     examples = sort(unique(row.example for row in rows))
-    colors = palette(:tab10, length(examples))
+    colors = [EXAMPLE_COLORS[mod1(i, length(EXAMPLE_COLORS))] for i in 1:length(examples)]
 
     plt = _plot_skeleton(title=title, ylabel=ylabel, xticks=xticks, yscale=(logy ? :log10 : :identity))
     for (idx, example) in enumerate(examples)
