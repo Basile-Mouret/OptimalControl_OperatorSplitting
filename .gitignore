@@ -2,6 +2,7 @@
 .vscode/
 .DS_Store
 *.swp
+osc/
 
 # Ignore data and logs, but keep the folders
 data/*
@@ -13,3 +14,4 @@ logs/*
 # Python simulation
 scripts/__pycache__/
 .venv/
+
