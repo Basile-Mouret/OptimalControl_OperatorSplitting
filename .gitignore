@@ -1,17 +1,4 @@
-# Editor and OS files
 .vscode/
 .DS_Store
-*.swp
 osc/
-
-# Ignore data and logs, but keep the folders
-data/*
-!data/.gitkeep
-logs/*
-!logs/.gitkeep
-
-
-# Python simulation
-scripts/__pycache__/
-.venv/
-
+resources/
