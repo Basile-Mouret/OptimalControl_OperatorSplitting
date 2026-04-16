@@ -81,22 +81,6 @@ println(tt)
 display(tt)
 ```
 
-#### Minimal example
-
-```julia
-using OptimalControl_OperatorSplitting
-
-function prox!(x_tilde, u_tilde, v, w, rho)
-    x_tilde .= v
-    u_tilde .= w
-end
-
-cache = setup_cache(data)
-x, u, tt = solve(cache, prox!; max_iters=3000)
-
-display(tt)
-```
-
 ## Examples
 
 Runnable examples (from [Operator Splitting for Optimal Control](https://stanford.edu/~boyd/papers/pdf/oper_splt_ctrl.pdf)) live in [`examples/`](examples/).
