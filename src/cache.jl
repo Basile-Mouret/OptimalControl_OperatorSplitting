@@ -4,6 +4,15 @@ Cache construction.
 Builds the reusable KKT factorization and persistent work buffers used for
 cold starts and repeated warm-started solves.
 =#
+"""
+    _set_rhs_lower!(cache)
+
+Refresh the dynamics portion of the linear-system right-hand side from
+`x_init` and `c`.
+
+This is called before each solve so changing `q`, `r`, `c`, or `x_init`
+does not require rebuilding the factorization.
+"""
 function _set_rhs_lower!(cache::solver_cache)
     data = cache.data
     copyto!(cache.rhs_lower, 1, data.x_init, 1, data.n)
@@ -16,6 +25,9 @@ end
 
 Build the reusable factorization and work buffers for repeated solves.
 The cache stays valid while `A`, `B`, `Q`, `S`, `R`, `rho`, and `reg` stay fixed.
+
+This function factorizes the static KKT matrix once and allocates all vectors
+used in the ADMM loop, including iterate storage for warm starts.
 """
 function setup_cache(data::all_data)
     dim_w = (data.T + 1) * (data.n + data.m)

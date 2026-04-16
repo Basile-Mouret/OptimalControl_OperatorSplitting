@@ -5,6 +5,14 @@ Provides problem/workspace constructors, timing helpers, convergence
 metrics, and triplet-based sparse KKT assembly used by cache setup and the
 solver.
 =#
+"""
+    all_data(A, B, c, Q, S, R, q, r, x_init; rho=50.0, alpha=1.0, eps_abs=1e-3, eps_rel=1e-3, reg=1e-6)
+
+Construct an [`all_data`](@ref) instance from problem arrays and ADMM settings.
+
+The constructor infers a floating-point scalar type, accepts time-invariant or
+stage-varying matrix data, and precomputes problem dimensions.
+"""
 function all_data(A, B, c, Q, S, R, q, r, x_init; rho=50.0, alpha=1.0, eps_abs=1e-3, eps_rel=1e-3, reg=1e-6)
     Tv = promote_type(eltype(x_init), typeof(float(rho)))
     n = length(x_init)
@@ -39,6 +47,14 @@ _stage_matrix(data::AbstractArray{<:Any,3}, stage) = @view data[:, :, stage]
 
 _stacked_norm(A, B) = hypot(norm(A), norm(B))
 
+"""
+    prob_vars(data)
+
+Allocate and initialize stacked ADMM variables for `data`.
+
+`x_t` is initialized with `data.x_init` at stage 0 to match the dynamics
+constraint layout used by the KKT system.
+"""
 function prob_vars(data::all_data{Tv}) where {Tv<:AbstractFloat}
     x = zeros(Tv, data.n * (data.T + 1))
     u = zeros(Tv, data.m * (data.T + 1))
@@ -142,6 +158,14 @@ function _append_diagonal_block!(rows, cols, vals, row0, col0, len, value)
     return nothing
 end
 
+"""
+    _convergence_metrics!(data, vars, cache)
+
+Compute primal/dual residuals and stopping tolerances for the current ADMM state.
+
+The formulas follow the residual-based criterion from the paper and the C
+reference implementation, using scaled absolute and relative tolerances.
+"""
 function _convergence_metrics!(data::all_data, vars::prob_vars, cache::solver_cache)
     tol_scale = sqrt((data.T + 1) * (data.n + data.m))
 
@@ -173,6 +197,14 @@ function _convergence_metrics!(data::all_data, vars::prob_vars, cache::solver_ca
     return r_norm, s_norm, eps_pri, eps_dual
 end
 
+"""
+    _assemble_kkt(data)
+
+Assemble the static symmetric KKT matrix for the linear system step.
+
+The matrix is built once from triplets, stored as lower-triangular symmetric
+data, and includes `rho` and `reg` regularization terms.
+"""
 function _assemble_kkt(data::all_data)
     Tv = eltype(data)
     n = data.n

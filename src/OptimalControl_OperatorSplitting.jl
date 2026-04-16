@@ -1,9 +1,12 @@
-#=
-Package entry point.
+"""
+    OptimalControl_OperatorSplitting
 
-Loads the core types, shared constructors, cache setup, utilities, and
-solver API for the operator-splitting optimal-control implementation.
-=#
+Operator-splitting solver core for finite-horizon optimal control.
+
+The package keeps `src/` solver-only, with problem-specific proximal logic
+provided by user code. The public API is cache-first (`setup_cache` then
+`solve`) so KKT factorizations and ADMM state can be reused across calls.
+"""
 module OptimalControl_OperatorSplitting
 
 using LinearAlgebra
