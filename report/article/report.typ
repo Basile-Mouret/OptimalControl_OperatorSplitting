@@ -19,23 +19,22 @@
 //
 = Introduction
 
-#include "chapters/introduction.typ" //Martin
+#include "chapters/introduction.typ" //Martin, what's control
 
 
-= Method // Malik
+= Method 
 
-#include "chapters/method.typ"
+#include "chapters/method.typ" // Malik
 
 = Implementation
 
 #include "chapters/implementation.typ" // Basile
 
 = Results
-
-#include "chapters/results.typ" // Tim
+#include "chapters/results.typ" // Tim, rajoue plot solveur quelconque, hyper parametre 
 
 
 
 = Conclusion
 
-#include "chapters/conclusion.typ" // Martin
+#include "chapters/conclusion.typ" // Martin, travaux futur 
