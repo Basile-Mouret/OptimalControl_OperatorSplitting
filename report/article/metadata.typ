@@ -30,36 +30,36 @@
   authors: (
     (
       name        : "BOYER Timothé",
-      abbr        : "",
+      abbr        : none,
       email       : "",
     ),
 
     (
       name        : "HACINI Malik",
-      abbr        : "",
+      abbr        : none,
       email       : "",
     ),
 
     (
       name        : "LAINE Martin",
-      abbr        : "",
+      abbr        : none,
       email       : "",
     ),
 
     (
       name        : "MOURET Basile",
-      abbr        : "",
+      abbr        : none,
       email       : "",
     ),
   
   ),
   school: (
-    name        : "ENSIMAG",
+    name        : "ENSIMAG - UGA",
     major       : "M1AM",
   ),
   course: (
     name     : "Graduate School Project: Splitting Method for Optimal Control",
-    prof     : none,
+    prof     : "Le Quoc Tun and Thomas Guilmeau",
     semester : none,
   ),
 
