@@ -37,4 +37,6 @@
 
 = Conclusion
 
-#include "chapters/conclusion.typ" // Martin, travaux futur 
+#include "chapters/conclusion.typ" // Martin
+
+#bibliography("references.bib", style: "ieee", title: [References])
