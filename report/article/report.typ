@@ -34,6 +34,7 @@
 = Results
 #include "chapters/results.typ" // Tim, rajoue plot solveur quelconque, hyper parametre 
 
+#pagebreak()
 = Conclusion
 
 #include "chapters/conclusion.typ" // Martin
