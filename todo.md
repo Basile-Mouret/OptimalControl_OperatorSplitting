@@ -1,4 +1,6 @@
-- cleanup double_pendulum
-
 - report
+ - improve results
+ - conclusion
+ - introduction
+ - implementation
 - slides
