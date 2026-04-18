@@ -1,3 +1,3 @@
-// to add: test the sensibility to hyperparameters of the algo
-// add a proof of convergence
-// add more comparison to other algos
+In this project, we implemented the operator-splitting method of O'Donoghue, Stathopoulos, and Boyd @odonoghue2013 in Julia for finite-horizon optimal control with linear dynamics. Our experiments reproduce the main behavior of the reference C implementation: we obtain matching convergence in number of iterations on the benchmark examples, while runtime differences depend on the example and on the balance between linear-system and proximal-step costs.
+
+Several extensions are natural if we had more time. We should study sensitivity to hyperparameters ($rho$, $alpha$, and stopping tolerances). Also, a convergence proof (with convergence rate) of the method would strengthen the theoretical part of this work. Moreover, broader comparisons with other optimization approaches would provide a more complete analysis of the method's strengths and weaknesses. Finally, we could also test our algorithm on other examples, to further validate its performance and robustness and explore its limitations.
