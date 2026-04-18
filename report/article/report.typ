@@ -17,6 +17,8 @@
 //-------------------------------------
 // Content
 //
+#counter(page).update(1)
+
 = Introduction
 
 #include "chapters/introduction.typ" //Martin
