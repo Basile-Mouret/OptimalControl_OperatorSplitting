@@ -17,7 +17,7 @@ $
 $ <ocp>
 
 subject to the dynamics $x_(t+1) = A_t x_t + B_t u_t + c_t$ for
-$t = 0, dots, T - 1$, and $x_0 = x_"init"$.
+$t = 0, dots, T - 1$, and $x_0 = x_"init" $.
 
 The quadratic part of the stage cost is
 
@@ -36,29 +36,14 @@ $
 $
 
 and let $D$ be the affine set of trajectories satisfying the dynamics and the
-initial condition,
+initial condition.
 
-$
-  D = { (x, u) | x_0 = x_"init", x_(t+1) = A_t x_t + B_t u_t + c_t,
-  t = 0, dots, T - 1 }.
-$ <initial-cond>
-
-We denote by $I_D$ the indicator function of this set,
-
-$
-  I_D (x, u) = cases(
-    0 "if" (x, u) in D,
-    +infinity "otherwise"
-  ).
-$
-
-The role of $I_D$ is to enforce feasibility.
 The optimal control problem can then be written compactly as
 
 $
   min_(x, u) I_D (x, u) + phi (x, u) + psi (x, u).
 $ <compact>
-
+Where $I_D$ is null if $(x,u) in D$ and takes the value $+infinity$ otherwise, enforcing feasibility of the solution point.
 This decomposition keeps the quadratic part and the linear dynamics together,
 while separating the nonsmooth or constraint-encoding terms.
 
@@ -137,7 +122,7 @@ $
 $
 
 Finally, let $G$ be the block-sparse linear operator such that $G w = h$ is
-equivalent to the constraints in @initial-cond.
+equivalent to the constraints in @ocp.
 With these definitions, the quadratic step in @admm-steps is equivalent, after expanding
 the squared norm and dropping terms independent of $w$, to the quadratic
 program
