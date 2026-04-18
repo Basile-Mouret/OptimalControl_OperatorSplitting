@@ -2,7 +2,7 @@
 
 For testing our implementation we used the same exemple as in the paper to compare our results with the ones obtained by the authors. The most important thing is that we obtained the same number of iterations to converge. That shows that our implementation is correct and that we are able to reproduce the results of the paper, that were made using C.
 
-#let data = csv("../../../results/c_vs_julia_cold.csv")
+#let data = csv("../results/c_vs_julia_cold.csv")
 #let filtered-data = data.map(row => (row.at(0), row.at(1), row.at(2), row.at(3), ))
 #set text(hyphenate: true)
 

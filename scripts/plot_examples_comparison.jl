@@ -5,7 +5,7 @@ using Plots
 using Plots.PlotMeasures
 
 const ROOT = normpath(joinpath(@__DIR__, ".."))
-const RESULTS_DIR = joinpath(ROOT, "results")
+const RESULTS_DIR = joinpath(ROOT, "report", "article", "results")
 const FIGURES_DIR = joinpath(ROOT, "report", "article", "figures")
 const COLD_CSV = joinpath(RESULTS_DIR, "c_vs_julia_cold.csv")
 const WARM_CSV = joinpath(RESULTS_DIR, "c_vs_julia_warm.csv")

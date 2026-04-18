@@ -1,7 +1,7 @@
 using Printf
 
 const ROOT = normpath(joinpath(@__DIR__, ".."))
-const RESULTS_DIR = joinpath(ROOT, "results")
+const RESULTS_DIR = joinpath(ROOT, "report", "article", "results")
 const REPORT_PATH = joinpath(ROOT, "report", "c_vs_julia_examples.md")
 const EXAMPLES = [
     ("box", "box_constrained_quadratic_optimal_control.jl"),
@@ -74,10 +74,10 @@ function write_report(path::String)
     open(path, "w") do io
         println(io, "# C vs Julia Comparison")
         println(io)
-        println(io, "Comparison outputs are saved as CSV files in `results/`:")
+        println(io, "Comparison outputs are saved as CSV files in `report/article/results/`:")
         println(io)
-        println(io, "- `results/c_vs_julia_cold.csv`")
-        println(io, "- `results/c_vs_julia_warm.csv`")
+        println(io, "- `report/article/results/c_vs_julia_cold.csv`")
+        println(io, "- `report/article/results/c_vs_julia_warm.csv`")
     end
 end
 
@@ -124,8 +124,8 @@ function main()
     write_csv(joinpath(RESULTS_DIR, "c_vs_julia_warm.csv"), warm_rows)
     write_report(REPORT_PATH)
 
-    println("Wrote: results/c_vs_julia_cold.csv")
-    println("Wrote: results/c_vs_julia_warm.csv")
+    println("Wrote: report/article/results/c_vs_julia_cold.csv")
+    println("Wrote: report/article/results/c_vs_julia_warm.csv")
     println("Wrote: report/c_vs_julia_examples.md")
 end
 
