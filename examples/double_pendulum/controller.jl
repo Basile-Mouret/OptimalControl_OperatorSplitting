@@ -42,25 +42,17 @@ function default_mpc_config()
     )
 end
 
-mutable struct HybridController
+mutable struct HybridController{Tc,Tp}
     params::CartDoublePendulumParams
     config::MPCConfig
-    balance_a::Matrix{Float64}
-    balance_b::Matrix{Float64}
-    balance_c::Vector{Float64}
     feedback_gain::Matrix{Float64}
     nominal_states::Matrix{Float64}
     nominal_controls::Matrix{Float64}
     solver_cache::Any
     prox_operator!::Function
     mode::Symbol
-    energy_gain::Float64
-    shape_gain::Float64
-    cart_gain::Float64
-    cart_rate_gain::Float64
     last_force::Float64
     last_solver_ms::Float64
-    last_linearization_ms::Float64
     last_iterations::Int
     last_converged::Bool
     last_energy_error::Float64
@@ -221,8 +213,8 @@ function discrete_dynamics(params::CartDoublePendulumParams, state::AbstractVect
 end
 
 function linearize_dynamics(params::CartDoublePendulumParams, state_nominal::AbstractVector, force_nominal, dt)
-    state_map = state -> discrete_dynamics(params, state, force_nominal, dt)
-    input_map = input -> discrete_dynamics(params, state_nominal, input[1], dt)
+    state_map = state -> rk4_step(params, state, force_nominal, dt)
+    input_map = input -> rk4_step(params, state_nominal, input[1], dt)
 
     a_matrix = ForwardDiff.jacobian(state_map, state_nominal)
     b_matrix = ForwardDiff.jacobian(input_map, [force_nominal])
@@ -303,16 +295,21 @@ function fallback_balance_force(controller::HybridController, state::AbstractVec
 end
 
 function swing_up_force(controller::HybridController, state::AbstractVector)
+    energy_gain = 0.22
+    shape_gain = 11.0
+    cart_gain = 4.0
+    cart_rate_gain = 3.2
+
     theta1 = wrap_angle(state[3])
     theta2 = wrap_angle(state[5])
     energy_error = target_energy(controller.params) - total_energy(controller.params, state)
     phase = state[4] * cos(theta1) + 0.65 * state[6] * cos(theta2)
     shape = sin(theta1) + 0.7 * sin(theta2)
 
-    force = controller.energy_gain * energy_error * phase -
-        controller.shape_gain * shape -
-        controller.cart_gain * state[1] -
-        controller.cart_rate_gain * state[2]
+    force = energy_gain * energy_error * phase -
+        shape_gain * shape -
+        cart_gain * state[1] -
+        cart_rate_gain * state[2]
 
     controller.last_energy_error = energy_error
     return clamp(force, -controller.config.max_force, controller.config.max_force)
@@ -322,14 +319,13 @@ function stabilize_force!(controller::HybridController, state::AbstractVector)
     cache = prepare_solver_cache!(controller, state)
     x_t, u_t, timings = solve(cache, controller.prox_operator!; max_iters=controller.config.max_iters)
     fallback_force = fallback_balance_force(controller, state)
+    _, controls, timings = solve(cache, controller.prox_operator!; max_iters=controller.config.max_iters)
 
     controller.last_solver_ms = timings.total_time
     controller.last_iterations = timings.itns
     controller.last_converged = timings.converged
-    controller.nominal_states .= x_t
-    controller.nominal_controls .= u_t
 
-    command = u_t[1, 1]
+    command = controls[1, 1]
     if !isfinite(command)
         command = fallback_force
     elseif timings.converged
@@ -341,7 +337,7 @@ function stabilize_force!(controller::HybridController, state::AbstractVector)
     return clamp(command, -controller.config.max_force, controller.config.max_force)
 end
 
-function control!(controller::HybridController, state::AbstractVector)
+function update_mode!(controller::HybridController, state::AbstractVector)
     if controller.mode == :stabilize && outside_balance_region(controller, state)
         controller.mode = in_capture_band(controller, state) ? :capture : :swing_up
     elseif controller.mode == :capture && !in_capture_band(controller, state)
@@ -352,20 +348,20 @@ function control!(controller::HybridController, state::AbstractVector)
         controller.mode = :capture
     end
 
+    return controller.mode
+end
+
+function control!(controller::HybridController, state::AbstractVector)
+    update_mode!(controller, state)
+
     if controller.mode == :stabilize
         force = stabilize_force!(controller, state)
     elseif controller.mode == :capture
-        controller.last_solver_ms = 0.0
-        controller.last_linearization_ms = 0.0
-        controller.last_iterations = 0
-        controller.last_converged = false
+        clear_solver_status!(controller)
         controller.last_energy_error = target_energy(controller.params) - total_energy(controller.params, state)
         force = fallback_balance_force(controller, state)
     else
-        controller.last_solver_ms = 0.0
-        controller.last_linearization_ms = 0.0
-        controller.last_iterations = 0
-        controller.last_converged = false
+        clear_solver_status!(controller)
         force = swing_up_force(controller, state)
     end
 
@@ -379,10 +375,6 @@ function warmup!(controller::HybridController)
     control!(controller, warm_state)
     controller.mode = :swing_up
     controller.last_force = 0.0
-    controller.last_solver_ms = 0.0
-    controller.last_linearization_ms = 0.0
-    controller.last_iterations = 0
-    controller.last_converged = false
     controller.last_energy_error = 0.0
     fill!(controller.nominal_controls, 0.0)
     fill!(controller.nominal_states, 0.0)

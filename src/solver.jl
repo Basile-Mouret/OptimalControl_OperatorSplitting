@@ -10,6 +10,19 @@ residual-based stopping and timing collection.
 Solve using a prebuilt cache. A fresh cache gives a cold start; repeated calls
 on the same cache reuse the internal ADMM state and therefore warm start.
 Returns copies of the current trajectories together with the timing data.
+
+# Arguments
+- `cache`: object returned by [`setup_cache`](@ref)
+- `prox_operator!`: in-place proximal update with signature
+  `prox_operator!(x_tilde, u_tilde, v, w, rho)`
+- `max_iters`: maximum ADMM iterations
+
+# Returns
+- `(x, u, tt)` where `x` and `u` are stage-wise trajectories and `tt::Timings`
+
+The solve loop uses cached factorizations and in-place updates throughout.
+It returns copies of the current trajectories together with timing and
+convergence information.
 """
 function solve(cache::solver_cache, prox_operator!; max_iters=3000)
     data = cache.data

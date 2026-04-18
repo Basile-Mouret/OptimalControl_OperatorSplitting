@@ -1,5 +1,4 @@
-- compare to other methods
+- cleanup double_pendulum
 
 - report
 - slides
- - setup live demo

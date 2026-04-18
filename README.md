@@ -1,27 +1,30 @@
 # Operator Splitting for Optimal Control
 
-Julia reimplementation of the operator-splitting method from
-`resources/oper_splt_ctrl.pdf`, using the original C implementation in `osc/`
-as the reference.
+A Julia package for solving optimal control problems efficiently.
 
-## References
+Based on: [Operator Splitting for Optimal Control](https://stanford.edu/~boyd/papers/pdf/oper_splt_ctrl.pdf) 
+by Brendan O'Donoghue, George Stathopoulos and Stephen Boyd.
 
-- paper: `resources/oper_splt_ctrl.pdf`
-- reference implementation: `osc/`
-- Julia solver: `src/`
+Freely inspired by the existing [C implementation](https://github.com/cvxgrp/osc) of the same algorithm.
 
-## Basic Usage
+## What does this solve ?
 
-Build the problem data, create a cache, then solve with a proximal operator.
+$$
+\begin{aligned}
+\min_{\substack{x_t, u_t \\ t=0,\ldots,T}} \quad &
+\sum_{t=0}^{T} \left( \phi_t(x_t, u_t) + \psi_t(x_t, u_t) \right) \\
+\text{subject to} \quad &
+x_{t+1} = A_t x_t + B_t u_t + c_t,\quad t=0,\ldots,T-1.
+\end{aligned}
+$$
+
+Where the $\phi_t$ terms are quadratic and the $\psi_t$ terms are arbitrary, supplied by the user in the form of a proximal operator.
+
+## Usage
+
+#### Problem Data
 
 ```julia
-using OptimalControl_OperatorSplitting
-
-function prox!(x_tilde, u_tilde, v, w, rho)
-    x_tilde .= v
-    u_tilde .= w
-end
-
 data = all_data(A, B, c, Q, S, R, q, r, x_init;
     rho=50.0,
     alpha=1.8,
@@ -29,12 +32,11 @@ data = all_data(A, B, c, Q, S, R, q, r, x_init;
     eps_rel=1e-3,
     reg=1e-6,
 )
-
-cache = setup_cache(data)
-x, u, tt = solve(cache, prox!; max_iters=3000)
-
-println(tt)
 ```
+
+See [`src/types.jl`](src/types.jl) for guidelines on variable types.
+
+#### Proximal operator
 
 The proximal operator must have the signature:
 
@@ -44,104 +46,42 @@ prox!(x_tilde, u_tilde, v, w, rho)
 
 and update `x_tilde` and `u_tilde` in place.
 
-## Cold And Warm Start
+#### Cache
 
-The public API is cache-first.
-
-```julia
-cache = setup_cache(data)
-```
-
-- a fresh cache gives a cold start
-- repeated calls to `solve(cache, prox!)` reuse the internal ADMM state and warm start
-
-Example:
-
-```julia
-x1, u1, tt1 = solve(cache, prox!; max_iters=3000)  # cold start
-x2, u2, tt2 = solve(cache, prox!; max_iters=3000)  # warm start
-```
-
-If you want another cold start, build a new cache:
+Before solving, one must build a cache from the problem data.
 
 ```julia
 cache = setup_cache(data)
 ```
 
-## When A Cache Can Be Reused
+Repeated calls to the solver with the same cache will reuse the internal problem state, thus resulting in a "warm start" of the resolution, yielding a noticeable performance increase.
 
 You can reuse the same cache while these stay fixed:
 
 - `A`, `B`, `Q`, `S`, `R`
 - `rho`, `reg`
 
-You may change without rebuilding the factorization:
+Equivalently, you can freely change these variables without rebuilding the cache:
 
 - `q`, `r`, `c`, `x_init`
 
-If the structural data changes, build a new cache.
-
-## Problem Data
-
-The solver accepts either:
-
-- time-invariant matrices for `A`, `B`, `Q`, `S`, `R`
-- stage-varying 3D arrays for those same quantities
-
-`Q` and `R` are assumed symmetric positive semidefinite.
-
-## Timings
-
-`solve` returns `(x, u, tt)` where `tt` is a `Timings` struct.
-
-Compact output:
+#### Solver
 
 ```julia
+x, u, tt = solve(cache, prox!; max_iters=3000)
+```
+
+The `tt` output is a `Timings` struct which contains the timing logs of the solver run.
+
+```julia
+# Compact output
 println(tt)
-```
 
-Detailed output:
-
-```julia
-show(stdout, MIME("text/plain"), tt)
-println()
-```
-
-## Tests
-
-Run the test suite with:
-
-```bash
-julia --project=. test/runtests.jl
-```
-
-or:
-
-```julia
-pkg> test
+# Detailed output
+display(tt)
 ```
 
 ## Examples
 
-Runnable examples live in `examples/`.
-
-Run them with:
-
-```bash
-julia --project=. examples/<example>.jl <size>
-```
-
-where `<size>` is one of:
-
-- `small`
-- `medium`
-- `large`
-
-Examples:
-
-```bash
-julia --project=. examples/box_constrained_quadratic_optimal_control.jl small
-julia --project=. examples/multiperiod_portfolio_optimization.jl medium
-julia --project=. examples/robust_state_estimation.jl large
-julia --project=. examples/supply_chain_management.jl small
-```
+Runnable examples (from [Operator Splitting for Optimal Control](https://stanford.edu/~boyd/papers/pdf/oper_splt_ctrl.pdf)) live in [`examples/`](examples/).
+You can run them by specifying the problem size (small, medium, large).
