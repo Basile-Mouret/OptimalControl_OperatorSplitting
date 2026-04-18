@@ -267,12 +267,12 @@ function prepare_solver_cache!(controller::HybridController, state::AbstractVect
     cache = controller.solver_cache
     cache.data.x_init .= state
     vars = cache.vars
-    vars.x .= controller.nominal_states
-    vars.x_t .= controller.nominal_states
-    vars.u .= controller.nominal_controls
-    vars.u_t .= controller.nominal_controls
-    vars.x[:, 1] .= state
-    vars.x_t[:, 1] .= state
+    copyto!(vars.x, vec(controller.nominal_states))
+    copyto!(vars.x_t, vec(controller.nominal_states))
+    copyto!(vars.u, vec(controller.nominal_controls))
+    copyto!(vars.u_t, vec(controller.nominal_controls))
+    copyto!(vars.x, 1, state, 1, length(state))
+    copyto!(vars.x_t, 1, state, 1, length(state))
     fill!(vars.z, 0.0)
     fill!(vars.y, 0.0)
     return cache
@@ -289,8 +289,8 @@ function reset_solver_state!(controller::HybridController, state::AbstractVector
     fill!(vars.u_t, 0.0)
     fill!(vars.z, 0.0)
     fill!(vars.y, 0.0)
-    vars.x[:, 1] .= state
-    vars.x_t[:, 1] .= state
+    copyto!(vars.x, 1, state, 1, length(state))
+    copyto!(vars.x_t, 1, state, 1, length(state))
     return controller
 end
 
