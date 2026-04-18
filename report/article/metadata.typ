@@ -59,7 +59,7 @@
   ),
   course: (
     name     : "Graduate School Project: Splitting Method for Optimal Control",
-    prof     : "Le Quoc Tun and Thomas Guilmeau",
+    prof     : "Le Quoc Tung and Thomas Guilmeau",
     semester : none,
   ),
 
