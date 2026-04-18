@@ -23,7 +23,6 @@
 
 #include "chapters/introduction.typ" //Martin
 
-
 = Method 
 
 #include "chapters/method.typ" // Malik
@@ -34,8 +33,6 @@
 
 = Results
 #include "chapters/results.typ" // Tim, rajoue plot solveur quelconque, hyper parametre 
-
-
 
 = Conclusion
 

@@ -52,21 +52,20 @@ $
   ).
 $
 
-The role of $I_D $ is to enforces feasibility.
+The role of $I_D$ is to enforce feasibility.
 The optimal control problem can then be written compactly as
 
 $
   min_(x, u) I_D (x, u) + phi (x, u) + psi (x, u).
 $ <compact>
 
-This decomposition is chosen so that the
-quadratic part and the linear dynamics remain grouped together, while the
-nonsmooth or constraint-encoding terms remain separate.
+This decomposition keeps the quadratic part and the linear dynamics together,
+while separating the nonsmooth or constraint-encoding terms.
 
 == Consensus Splitting
 
 To split these two parts algorithmically, we introduce auxiliary variables
-$(tilde(x), tilde(u))$ as a copy of the trajectory and write the problem as:
+$(tilde(x), tilde(u))$ as a copy of the trajectory and write
 
 $
   min_(x, u, tilde(x), tilde(u))
@@ -75,8 +74,8 @@ $ <consensus>
 
 subject to $(x, u) = (tilde(x), tilde(u))$.
 
-The consensus constraint $(x, u) = (tilde(x), tilde(u))$ forces the original variables and their copy to coincide componentwise at a
-solution. 
+The consensus constraint $(x, u) = (tilde(x), tilde(u))$ forces the original
+variables and their copy to coincide componentwise at the solution.
 
 Applying scaled ADMM with penalty parameter $rho > 0$ and scaled dual
 variables $(z, y)$ gives the iteration
@@ -99,17 +98,17 @@ $
   - (x_t^(k+1) - z_t^k, u_t^(k+1) - y_t^k))_2^2,
 $ <prox-stage>
 
-which is precisely the proximal operator of $psi_t / rho$ evaluated at
+which is the proximal operator of $psi_t / rho$ evaluated at
 $(x_t^(k+1) - z_t^k, u_t^(k+1) - y_t^k)$. 
 
 The first update is a convex quadratic optimal control problem with linear
 dynamics. 
 
-This justifies the splitting idea of the method : the only horizon-coupled step is quadratic, while the nonsmooth
-part reduces to independent small problems that can often be solved in closed
-form.
+This is the key advantage of the method: the only horizon-coupled step is
+quadratic, while the nonsmooth part reduces to independent small problems that
+can often be solved in closed form.
 
-== Quadratic Step 
+== Quadratic Step
 
 Define the stacked primal variable
 $w = (x_0, u_0, x_1, u_1, dots, x_T, u_T)$.
@@ -123,7 +122,8 @@ $
 Since $mat(Q_t, S_t; S_t^T, R_t)$ is positive semidefinite and $rho > 0$,
 each matrix $E_t$ is symmetric positive definite. 
 Let $E$ be the block diagonal matrix with diagonal blocks $E_0, dots, E_T$.
-Let $h$ denote the RHS constraints vector and $f$ denote the linear objective vector :
+Let $h$ denote the right-hand side vector of the constraints and $f$ the
+linear objective vector:
 
 $
   h &= (x_"init", c_0, c_1, dots, c_(T-1)) #linebreak()
@@ -137,8 +137,8 @@ $
 $
 
 Finally, let $G$ be the block-sparse linear operator such that $G w = h$ is
-equivalent to the initial conditions (@initial-cond).
-With these definitions, the quadratic step of (@admm-steps) is equivalent, after expanding
+equivalent to the constraints in @initial-cond.
+With these definitions, the quadratic step in @admm-steps is equivalent, after expanding
 the squared norm and dropping terms independent of $w$, to the quadratic
 program
 
@@ -148,8 +148,7 @@ $ <qp>
 
 subject to $G w = h$.
 
-The associated optimality conditions are
-the KKT system
+The associated optimality conditions are the KKT system
 
 $
   mat(E, G^T; G, 0) mat(w; lambda) = mat(-f; h).

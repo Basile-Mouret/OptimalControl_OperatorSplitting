@@ -1,6 +1,6 @@
 == Performance comparison
 
-For testing our implementation we used the same exemple as in the paper to compare our results with the ones obtained by the authors. The most important thing is that we obtained the same number of iterations to converge. That shows that our implementation is correct and that we are able to reproduce the results of the paper, that were made using C.
+To evaluate our implementation, we used the same examples as in the paper and compared our results with those of the reference C implementation. The main validation result is that we obtain the same number of iterations to convergence. This shows that the Julia solver reproduces the behavior of the original method.
 
 #let data = csv("../results/c_vs_julia_cold.csv")
 #let filtered-data = data.map(row => (row.at(0), row.at(1), row.at(2), row.at(3), ))
@@ -16,14 +16,14 @@ table(
 caption: "Number of iterations to converge for the cold start case."
 )
 
-However, for the time of execution, we obtained different results. For some problems out implementation is faster than the one in C, and for some others it is slower.
+Execution times, however, differ. For some problems our implementation is faster than the C version, while for others it is slower.
 
 #figure(
 image("../figures/c_vs_julia_cold_total.png", width: 80%),
-caption: "Time of execution of the algorithm for the different problems in the cold start case."
+caption: "Execution time of the algorithm for the different problems in the cold-start case."
 )
 
-This difference comes from the fact that our problem resolution is separated in two steps: the linear part with the gradient, and the application of the proximal operator. We decided then to compare the time of execution of these two steps separately, to see if we can find where the difference comes from.
+Each iteration is split into two main steps: the linear-system solve and the proximal update. We therefore measured these two parts separately to identify the source of the runtime differences.
 
 #figure(
   grid(
@@ -31,8 +31,7 @@ This difference comes from the fact that our problem resolution is separated in 
     image("../figures/c_vs_julia_cold_lin.png"),
     image("../figures/c_vs_julia_cold_prox.png")
   ),
-  caption: "Time of execution of the linear solver (left) and the proximal operator (right) for the different problems in the cold start case."
+  caption: "Execution time of the linear solve (left) and the proximal update (right) for the different problems in the cold-start case."
 )
 
-We can see that for the linear part, our implementation is slower than the one in C, while for the proximal operator, our implementation is faster. This can be explained by the fact that for the linear part there is a lot of memory allocation and deallocation, which can be costly in terms of time for Julia.
-
+The plots show that our implementation is slower on the linear solve but faster on the proximal step. A likely explanation is that the linear solve is more sensitive to memory allocation and data movement, which are more costly in Julia than in the reference C code.
