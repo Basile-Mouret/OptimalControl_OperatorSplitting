@@ -19,7 +19,7 @@
 //
 = Introduction
 
-#include "chapters/introduction.typ" //Martin, what's control
+#include "chapters/introduction.typ" //Martin
 
 
 = Method 

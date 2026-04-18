@@ -23,7 +23,7 @@ image("../figures/c_vs_julia_cold_total.png", width: 80%),
 caption: "Time of execution of the algorithm for the different problems in the cold start case."
 )
 
-To explain this difference, we need to understand that our problem resolution is separated in two steps: the linear par with the gradient, and the application of the proximal operator. We decide then to compare the time of execution of these two steps separately, to see if we can find where the difference comes from.
+This difference comes from the fact that our problem resolution is separated in two steps: the linear part with the gradient, and the application of the proximal operator. We decided then to compare the time of execution of these two steps separately, to see if we can find where the difference comes from.
 
 #figure(
   grid(
