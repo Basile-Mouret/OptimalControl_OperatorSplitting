@@ -42,17 +42,25 @@ function default_mpc_config()
     )
 end
 
-mutable struct HybridController{Tc,Tp}
+mutable struct HybridController
     params::CartDoublePendulumParams
     config::MPCConfig
+    balance_a::Matrix{Float64}
+    balance_b::Matrix{Float64}
+    balance_c::Vector{Float64}
     feedback_gain::Matrix{Float64}
     nominal_states::Matrix{Float64}
     nominal_controls::Matrix{Float64}
     solver_cache::Any
     prox_operator!::Function
     mode::Symbol
+    energy_gain::Float64
+    shape_gain::Float64
+    cart_gain::Float64
+    cart_rate_gain::Float64
     last_force::Float64
     last_solver_ms::Float64
+    last_linearization_ms::Float64
     last_iterations::Int
     last_converged::Bool
     last_energy_error::Float64
@@ -286,6 +294,14 @@ function reset_solver_state!(controller::HybridController, state::AbstractVector
     return controller
 end
 
+function clear_solver_status!(controller::HybridController)
+    controller.last_solver_ms = 0.0
+    controller.last_linearization_ms = 0.0
+    controller.last_iterations = 0
+    controller.last_converged = false
+    return controller
+end
+
 function fallback_balance_force(controller::HybridController, state::AbstractVector)
     local_state = copy(state)
     local_state[3] = wrap_angle(local_state[3])
@@ -295,21 +311,16 @@ function fallback_balance_force(controller::HybridController, state::AbstractVec
 end
 
 function swing_up_force(controller::HybridController, state::AbstractVector)
-    energy_gain = 0.22
-    shape_gain = 11.0
-    cart_gain = 4.0
-    cart_rate_gain = 3.2
-
     theta1 = wrap_angle(state[3])
     theta2 = wrap_angle(state[5])
     energy_error = target_energy(controller.params) - total_energy(controller.params, state)
     phase = state[4] * cos(theta1) + 0.65 * state[6] * cos(theta2)
     shape = sin(theta1) + 0.7 * sin(theta2)
 
-    force = energy_gain * energy_error * phase -
-        shape_gain * shape -
-        cart_gain * state[1] -
-        cart_rate_gain * state[2]
+    force = controller.energy_gain * energy_error * phase -
+        controller.shape_gain * shape -
+        controller.cart_gain * state[1] -
+        controller.cart_rate_gain * state[2]
 
     controller.last_energy_error = energy_error
     return clamp(force, -controller.config.max_force, controller.config.max_force)
@@ -317,7 +328,6 @@ end
 
 function stabilize_force!(controller::HybridController, state::AbstractVector)
     cache = prepare_solver_cache!(controller, state)
-    x_t, u_t, timings = solve(cache, controller.prox_operator!; max_iters=controller.config.max_iters)
     fallback_force = fallback_balance_force(controller, state)
     _, controls, timings = solve(cache, controller.prox_operator!; max_iters=controller.config.max_iters)
 
