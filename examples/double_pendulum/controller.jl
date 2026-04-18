@@ -42,182 +42,18 @@ function default_mpc_config()
     )
 end
 
-mutable struct HybridController
+mutable struct HybridController{Tc,Tp}
     params::CartDoublePendulumParams
     config::MPCConfig
-    balance_a::Matrix{Float64}
-    balance_b::Matrix{Float64}
-    balance_c::Vector{Float64}
     feedback_gain::Matrix{Float64}
-    nominal_states::Matrix{Float64}
-    nominal_controls::Matrix{Float64}
-    solver_cache::Any
-    prox_operator!::Function
+    cache::Tc
+    prox_operator!::Tp
     mode::Symbol
-    energy_gain::Float64
-    shape_gain::Float64
-    cart_gain::Float64
-    cart_rate_gain::Float64
     last_force::Float64
     last_solver_ms::Float64
-    last_linearization_ms::Float64
     last_iterations::Int
     last_converged::Bool
     last_energy_error::Float64
-end
-
-function build_solver_data(config::MPCConfig, a_stage::AbstractMatrix, b_stage::AbstractMatrix, c_stage::AbstractVector, x_init::AbstractVector)
-    horizon = config.horizon
-    n = length(x_init)
-
-    a_matrix = zeros(n, n, horizon)
-    b_matrix = zeros(n, 1, horizon)
-    affine_term = zeros(n, horizon)
-
-    for stage in 1:horizon
-        a_matrix[:, :, stage] .= a_stage
-        b_matrix[:, :, stage] .= b_stage
-        affine_term[:, stage] .= c_stage
-    end
-
-    q_matrix = zeros(n, n, horizon + 1)
-    r_matrix = zeros(1, 1, horizon + 1)
-    s_matrix = zeros(n, 1, horizon + 1)
-    q_vector = zeros(n, horizon + 1)
-    r_vector = zeros(1, horizon + 1)
-
-    for stage in 1:horizon
-        q_matrix[:, :, stage] .= config.stage_state_weight
-        r_matrix[:, :, stage] .= config.stage_input_weight
-    end
-
-    q_matrix[:, :, end] .= config.terminal_state_weight
-    r_matrix[:, :, end] .= config.stage_input_weight
-
-    return all_data(
-        a_matrix,
-        b_matrix,
-        affine_term,
-        q_matrix,
-        s_matrix,
-        r_matrix,
-        q_vector,
-        r_vector,
-        copy(x_init);
-        rho=config.rho,
-        alpha=1.0,
-        eps_abs=config.eps_abs,
-        eps_rel=config.eps_rel,
-    )
-end
-
-function build_hybrid_controller(params::CartDoublePendulumParams; config=default_mpc_config())
-    n = 6
-    num_cols = config.horizon + 1
-    balance_a, balance_b, balance_c = linearize_dynamics(params, zeros(n), 0.0, config.dt)
-    feedback_gain = local_lqr_gain(balance_a, balance_b, config.terminal_state_weight, config.stage_input_weight)
-    solver_cache = setup_cache(build_solver_data(config, balance_a, balance_b, balance_c, zeros(n)))
-    prox_operator! = let max_force = config.max_force
-        function (x_tilde, u_tilde, v, w, rho)
-            x_tilde .= v
-            u_tilde .= clamp.(w, -max_force, max_force)
-            return nothing
-        end
-    end
-
-    return HybridController(
-        params,
-        config,
-        Matrix(balance_a),
-        Matrix(balance_b),
-        Vector(balance_c),
-        Matrix(feedback_gain),
-        zeros(n, num_cols),
-        zeros(1, num_cols),
-        solver_cache,
-        prox_operator!,
-        :swing_up,
-        0.22,
-        11.0,
-        4.0,
-        3.2,
-        0.0,
-        0.0,
-        0.0,
-        0,
-        false,
-        0.0,
-    )
-end
-
-function controller_snapshot(controller::HybridController)
-    return (
-        mode=controller.mode,
-        force=controller.last_force,
-        solver_ms=controller.last_solver_ms,
-        linearization_ms=controller.last_linearization_ms,
-        iterations=controller.last_iterations,
-        converged=controller.last_converged,
-        energy_error=controller.last_energy_error,
-    )
-end
-
-function in_capture_region(controller::HybridController, state::AbstractVector)
-    error = upright_error(state)
-    return error.angle <= controller.config.capture_enter_angle &&
-        error.rate <= controller.config.capture_enter_rate
-end
-
-function in_capture_band(controller::HybridController, state::AbstractVector)
-    error = upright_error(state)
-    return error.angle <= 1.0 && error.rate <= 5.0
-end
-
-function outside_balance_region(controller::HybridController, state::AbstractVector)
-    error = upright_error(state)
-    return error.angle >= controller.config.capture_exit_angle ||
-        error.rate >= controller.config.capture_exit_rate
-end
-
-function shift_controls!(controller::HybridController)
-    controls = controller.nominal_controls
-    controls[:, 1:(end - 1)] .= controls[:, 2:end]
-    controls[:, end] .= controls[:, end - 1]
-    return controls
-end
-
-function rollout_nominal(params::CartDoublePendulumParams, x0::AbstractVector, controls::AbstractMatrix, dt)
-    n = length(x0)
-    horizon = size(controls, 2) - 1
-    states = zeros(n, horizon + 1)
-    states[:, 1] .= x0
-
-    for stage in 1:horizon
-        states[:, stage + 1] .= rk4_step(params, states[:, stage], controls[1, stage], dt)
-    end
-
-    return states
-end
-
-function rollout_linear_nominal(state::AbstractVector, controls::AbstractMatrix, a_stage::AbstractMatrix, b_stage::AbstractMatrix, c_stage::AbstractVector)
-    n = length(state)
-    horizon = size(controls, 2) - 1
-    states = zeros(n, horizon + 1)
-    states[:, 1] .= state
-
-    for stage in 1:horizon
-        states[:, stage + 1] .= a_stage * states[:, stage] + b_stage * controls[:, stage] + c_stage
-    end
-
-    return states
-end
-
-function discrete_dynamics(params::CartDoublePendulumParams, state::AbstractVector, force, dt)
-    k1 = continuous_dynamics(params, state, force)
-    k2 = continuous_dynamics(params, state .+ 0.5 * dt .* k1, force)
-    k3 = continuous_dynamics(params, state .+ 0.5 * dt .* k2, force)
-    k4 = continuous_dynamics(params, state .+ dt .* k3, force)
-    return state .+ (dt / 6.0) .* (k1 .+ 2 .* k2 .+ 2 .* k3 .+ k4)
 end
 
 function linearize_dynamics(params::CartDoublePendulumParams, state_nominal::AbstractVector, force_nominal, dt)
@@ -252,36 +88,80 @@ function local_lqr_gain(a_matrix::AbstractMatrix, b_matrix::AbstractMatrix, q_ma
     return (r_matrix + b_matrix' * p_matrix * b_matrix) \ (b_matrix' * p_matrix * a_matrix)
 end
 
-function prepare_solver_cache!(controller::HybridController, state::AbstractVector)
-    shift_controls!(controller)
-    controller.last_linearization_ms = 0.0
+function build_mpc_cache(a_matrix::AbstractMatrix, b_matrix::AbstractMatrix, affine_term::AbstractVector, config::MPCConfig)
+    n = size(a_matrix, 1)
+    horizon = config.horizon
 
-    controller.nominal_states .= rollout_linear_nominal(
-        state,
-        controller.nominal_controls,
-        controller.balance_a,
-        controller.balance_b,
-        controller.balance_c,
+    q_matrix = zeros(n, n, horizon + 1)
+    for stage in 1:horizon
+        q_matrix[:, :, stage] .= config.stage_state_weight
+    end
+    q_matrix[:, :, end] .= config.terminal_state_weight
+
+    data = all_data(
+        a_matrix,
+        b_matrix,
+        repeat(reshape(affine_term, :, 1), 1, horizon),
+        q_matrix,
+        zeros(n, 1),
+        config.stage_input_weight,
+        zeros(n, horizon + 1),
+        zeros(1, horizon + 1),
+        zeros(n);
+        rho=config.rho,
+        alpha=1.0,
+        eps_abs=config.eps_abs,
+        eps_rel=config.eps_rel,
     )
 
-    cache = controller.solver_cache
-    cache.data.x_init .= state
-    vars = cache.vars
-    copyto!(vars.x, vec(controller.nominal_states))
-    copyto!(vars.x_t, vec(controller.nominal_states))
-    copyto!(vars.u, vec(controller.nominal_controls))
-    copyto!(vars.u_t, vec(controller.nominal_controls))
-    copyto!(vars.x, 1, state, 1, length(state))
-    copyto!(vars.x_t, 1, state, 1, length(state))
-    fill!(vars.z, 0.0)
-    fill!(vars.y, 0.0)
-    return cache
+    return setup_cache(data)
 end
 
-function reset_solver_state!(controller::HybridController, state::AbstractVector)
-    cache = controller.solver_cache
-    cache.data.x_init .= state
+function build_hybrid_controller(params::CartDoublePendulumParams; config=default_mpc_config())
+    a_matrix, b_matrix, affine_term = linearize_dynamics(params, zeros(6), 0.0, config.dt)
+    feedback_gain = local_lqr_gain(a_matrix, b_matrix, config.terminal_state_weight, config.stage_input_weight)
+    cache = build_mpc_cache(a_matrix, b_matrix, affine_term, config)
+    prox_operator! = let max_force = config.max_force
+        function (x_tilde, u_tilde, v, w, rho)
+            x_tilde .= v
+            u_tilde .= clamp.(w, -max_force, max_force)
+            return nothing
+        end
+    end
 
+    return HybridController(
+        params,
+        config,
+        Matrix(feedback_gain),
+        cache,
+        prox_operator!,
+        :swing_up,
+        0.0,
+        0.0,
+        0,
+        false,
+        0.0,
+    )
+end
+
+function in_capture_region(controller::HybridController, state::AbstractVector)
+    error = upright_error(state)
+    return error.angle <= controller.config.capture_enter_angle &&
+        error.rate <= controller.config.capture_enter_rate
+end
+
+function in_capture_band(::HybridController, state::AbstractVector)
+    error = upright_error(state)
+    return error.angle <= 1.0 && error.rate <= 5.0
+end
+
+function outside_balance_region(controller::HybridController, state::AbstractVector)
+    error = upright_error(state)
+    return error.angle >= controller.config.capture_exit_angle ||
+        error.rate >= controller.config.capture_exit_rate
+end
+
+function reset_cache!(cache)
     vars = cache.vars
     fill!(vars.x, 0.0)
     fill!(vars.u, 0.0)
@@ -289,17 +169,15 @@ function reset_solver_state!(controller::HybridController, state::AbstractVector
     fill!(vars.u_t, 0.0)
     fill!(vars.z, 0.0)
     fill!(vars.y, 0.0)
-    copyto!(vars.x, 1, state, 1, length(state))
-    copyto!(vars.x_t, 1, state, 1, length(state))
-    return controller
+    fill!(cache.data.x_init, 0.0)
+    return nothing
 end
 
 function clear_solver_status!(controller::HybridController)
     controller.last_solver_ms = 0.0
-    controller.last_linearization_ms = 0.0
     controller.last_iterations = 0
     controller.last_converged = false
-    return controller
+    return nothing
 end
 
 function fallback_balance_force(controller::HybridController, state::AbstractVector)
@@ -311,23 +189,33 @@ function fallback_balance_force(controller::HybridController, state::AbstractVec
 end
 
 function swing_up_force(controller::HybridController, state::AbstractVector)
+    energy_gain = 0.22
+    shape_gain = 11.0
+    cart_gain = 4.0
+    cart_rate_gain = 3.2
+
     theta1 = wrap_angle(state[3])
     theta2 = wrap_angle(state[5])
     energy_error = target_energy(controller.params) - total_energy(controller.params, state)
     phase = state[4] * cos(theta1) + 0.65 * state[6] * cos(theta2)
     shape = sin(theta1) + 0.7 * sin(theta2)
 
-    force = controller.energy_gain * energy_error * phase -
-        controller.shape_gain * shape -
-        controller.cart_gain * state[1] -
-        controller.cart_rate_gain * state[2]
+    force = energy_gain * energy_error * phase -
+        shape_gain * shape -
+        cart_gain * state[1] -
+        cart_rate_gain * state[2]
 
     controller.last_energy_error = energy_error
     return clamp(force, -controller.config.max_force, controller.config.max_force)
 end
 
 function stabilize_force!(controller::HybridController, state::AbstractVector)
-    cache = prepare_solver_cache!(controller, state)
+    cache = controller.cache
+    cache.data.x_init .= state
+    copyto!(cache.vars.x, 1, state, 1, cache.data.n)
+    copyto!(cache.vars.x_t, 1, state, 1, cache.data.n)
+
+    controller.last_energy_error = target_energy(controller.params) - total_energy(controller.params, state)
     fallback_force = fallback_balance_force(controller, state)
     _, controls, timings = solve(cache, controller.prox_operator!; max_iters=controller.config.max_iters)
 
@@ -386,8 +274,7 @@ function warmup!(controller::HybridController)
     controller.mode = :swing_up
     controller.last_force = 0.0
     controller.last_energy_error = 0.0
-    fill!(controller.nominal_controls, 0.0)
-    fill!(controller.nominal_states, 0.0)
-    reset_solver_state!(controller, zeros(size(controller.nominal_states, 1)))
+    clear_solver_status!(controller)
+    reset_cache!(controller.cache)
     return controller
 end
