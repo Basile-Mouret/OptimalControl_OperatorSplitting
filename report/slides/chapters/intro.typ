@@ -49,7 +49,3 @@
     image("../figures/convex_opt.jpg")
   )
 ]
-
-#outline-slide()
-
-
