@@ -3,17 +3,18 @@
 = Results
 
 #slide(title: "Results")[
-  == Exemple: Constrained Quadratic Optimal Control
+  == Example: Box-constrained quadratic optimal control
   #align(center)[
     #grid(
       columns: (1fr, 1fr),
       gutter: 2.5em,
-      [$ min_(u_t) 1/2 sum_(t=0)^(T-1) (x_t^T Q x_t + u_t^T R u_t) $],
+      [$ min_(x,u) 1/2 sum_(t=0)^(T-1) (x_t^T Q x_t + u_t^T R u_t) $],
       [
-        Our constraints are:
+        For the speed-control example, we impose
 
         - $x_(t+1) = A x_t + B u_t$
-        - $norm(u_t) <= 1$
+        - $x_0 = x_"init"$
+        - $abs(u_t) <= 1$
       ],
     )
   ]
@@ -26,7 +27,7 @@
       image("../figures/speed_control_acceleration.png", width: 80%),
       image("../figures/speed_control_velocity.png", width: 80%),
     ),
-    caption: "Ratio"
+    caption: "Acceleration (left) and velocity (right) for the controlled trajectory."
   )
 
 ]
@@ -48,5 +49,4 @@ caption: "Execution time of the algorithm for the different problems in the cold
   caption: "Execution time of the linear solve (left) and the proximal update (right) for the different problems in the cold-start case."
 )
 ]
-
 

@@ -12,9 +12,9 @@
 
     #v(0.9em)
 
-    - Designed for scientific workflows
-    - High-level syntax
-    - Compiled Just In Time
+      - Designed for scientific computing
+      - High-level syntax
+      - Just-in-time compiled
   ],
   [
     #strong[Solver API]

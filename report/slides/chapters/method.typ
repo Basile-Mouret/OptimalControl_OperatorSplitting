@@ -9,12 +9,12 @@
       $
         min_(x, u) sum_(t=0)^T (phi_t (x_t, u_t) + psi_t (x_t, u_t))
       $
-      $
+  $
         "subject to "x_(t+1) = A_t x_t + B_t u_t + c_t, quad t = 0, dots, T - 1, x_0 = x_("init").
       $
 
   Where $phi_t$ is quadratic and $psi_t$ can encode
-  nonsmooth penalties or convex constraints. We respectfully denote $phi(x,u)$ and $psi(x,u)$ the total quadratic/convex cost over time. 
+  nonsmooth penalties or convex constraints. We respectively denote $phi(x,u)$ and $psi(x,u)$ as the total quadratic and convex costs over time.
 
 ]
 
@@ -33,7 +33,7 @@
   $(tilde(x), tilde(u))$ block has no cross-time constraints.
 
   #pause
-  This enables us to solve the problem via ADMM, an algorithm for decomposable optimization problems.
+  This allows us to solve the problem with ADMM, an algorithm for decomposable optimization problems.
 ]
 
 #slide(title: "ADMM updates" )[
@@ -44,10 +44,10 @@
         (tilde(x)^(k+1), tilde(u)^(k+1)) &= arg min_(tilde(x), tilde(u)) psi (tilde(x), tilde(u)) + rho / 2 norm((tilde(x), tilde(u)) - (x^(k+1), u^(k+1)) + (z^k, y^k))_2^2 #linebreak()
         (z^(k+1), y^(k+1)) &= (z^k, y^k) + (tilde(x)^(k+1), tilde(u)^(k+1)) - (x^(k+1), u^(k+1)).
       $
-  The first step is a simple quadratic control problem with linear constraints, and the second one can be rewritten w.r.t the proximal operator. #linebreak()
-  Here, $rho$ controls the tradeoff between enforcing $psi$/$phi$ and staying close to the current point.
+  The first step is a quadratic control problem with linear constraints, and the second is exactly a proximal update. #linebreak()
+  Here, $rho$ controls the strength of the quadratic penalty that keeps the new variables close to the current ADMM point.
   #pause
-  We can thus solve these two problems independently using the most adequate method for each, justifying the split !
+  We can therefore solve these two problems independently with the method best suited to each one. This justifies the core "splitting" idea of the method.
 ]
 
 #slide(title: "Solving the subproblems")[
@@ -60,10 +60,10 @@
       mat(E, G^T; G, 0) mat(w; lambda) = mat(-f; h).
     $
   #pause
-  The second subproblem separates across time : 
+  The second subproblem separates across time:
 
     $
       (tilde(x)_t^(k+1), tilde(u)_t^(k+1)) = "prox"_(psi_t / rho)(x_t^(k+1) - z_t^k, u_t^(k+1) - y_t^k).
     $
- In many cases, the evaluation of the proximal operator  is available in closed form.
+ In many cases, the proximal operator is available in closed form.
 ]
