@@ -1,6 +1,6 @@
 #import "@preview/clean-math-presentation:0.1.1": *
 
-= Introduction
+= Introduction <touying:hidden>
 
 #slide(title: "What's optimal control?")[
      #grid(
@@ -50,10 +50,6 @@
   )
 ]
 
-#slide(title: "The objective")[
-	Our goal was to reproduce and study this method in Julia, with the original C
-	implementation as reference.
+#outline-slide()
 
-	We'll present the mathematical formulation of the problem, then the main
-	implementation choices, and compare iteration counts and runtimes against C on the benchmark examples.
-]
+
