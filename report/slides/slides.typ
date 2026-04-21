@@ -32,6 +32,7 @@
 
 #include "chapters/results.typ"
 
+#include "chapters/conclusion.typ"
 
 #ending-slide()[
   Thank you for your attention !
