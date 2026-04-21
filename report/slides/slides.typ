@@ -28,6 +28,8 @@
 
 #include "chapters/implementation.typ"
 
+#include "chapters/results.typ"
+
 #include "chapters/demo.typ"
 
 #ending-slide()[
