@@ -2,7 +2,7 @@
 
 = Conclusion <touying:hidden>
 
-#slide(title: "Achievments and future directions")[
+#slide(title: "Recap and Future work")[
 	We implemented the operator-splitting method in Julia for finite-horizon
 	optimal control with linear dynamics.
 
@@ -10,10 +10,10 @@
 	in iteration counts. Runtime differences depend on the example and on the
 	relative cost of the linear-system step versus the proximal step.
 
-	Several extensions would be natural for future work:
-	- Study the sensitivity of the hyperparameters ($rho$, $alpha$, and stopping tolerances)
-	- Comparison with other optimization methods
-	- Test the algo on more examples
+
+        Future work : 
+	- Test on more examples
 	- Convergence-rate results
+        - Using a native Julia linear solver
 
 ]
