@@ -3,7 +3,7 @@
 
 #show: clean-math-presentation-theme.with(
   config-info(
-    title: [Optimal Control Operators Splitting],
+    title: [Operator Splitting for Optimal Control],
     authors: (
       (name: "Boyer Timothé"),
       (name: "Hacini Malik"),
@@ -22,4 +22,14 @@
 
 #title-slide()
 
+#include "chapters/intro.typ"
 
+#include "chapters/method.typ"
+
+#include "chapters/implementation.typ"
+
+#include "chapters/demo.typ"
+
+#ending-slide()[
+  Thank you for your attention !
+]
