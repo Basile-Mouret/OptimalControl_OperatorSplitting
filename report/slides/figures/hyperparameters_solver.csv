@@ -1,0 +1,6 @@
+hyperparameter,paper_original_value
+rho,50.0
+alpha,1.8
+eps_abs,1e-3
+eps_rel,1e-3
+reg,1e-6

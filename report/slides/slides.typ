@@ -28,9 +28,10 @@
 
 #include "chapters/implementation.typ"
 
+#include "chapters/demo.typ"
+
 #include "chapters/results.typ"
 
-#include "chapters/demo.typ"
 
 #ending-slide()[
   Thank you for your attention !
