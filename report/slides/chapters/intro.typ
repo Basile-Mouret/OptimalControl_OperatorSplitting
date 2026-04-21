@@ -23,7 +23,7 @@
     Goal: keep the indoor temperature close to 20°C over time. Here, the *state* is the room temperature $T$, and the *control* is the power $P$ sent to the radiator.
 
     $
-      T_(t+1) = alpha T_t + beta P_t
+      T_(t+1) = f(T_t, P_t)
     $
 
     - We minimize thermal discomfort and electricity usage.
