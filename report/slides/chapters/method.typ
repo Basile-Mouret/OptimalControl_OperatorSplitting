@@ -32,6 +32,7 @@
   The dynamics stay in the $(x, u)$ block through $I_D$, so the
   $(tilde(x), tilde(u))$ block has no cross-time constraints.
 
+  #pause
   This enables us to solve the problem via ADMM, an algorithm for decomposable optimization problems.
 ]
 
@@ -43,9 +44,9 @@
         (tilde(x)^(k+1), tilde(u)^(k+1)) &= arg min_(tilde(x), tilde(u)) psi (tilde(x), tilde(u)) + rho / 2 norm((tilde(x), tilde(u)) - (x^(k+1), u^(k+1)) + (z^k, y^k))_2^2 #linebreak()
         (z^(k+1), y^(k+1)) &= (z^k, y^k) + (tilde(x)^(k+1), tilde(u)^(k+1)) - (x^(k+1), u^(k+1)).
       $
-  The first step is a simple quadratic control problem with linear constraints, and the second one is exactly an evaluation of the proximal operator. #linebreak()
+  The first step is a simple quadratic control problem with linear constraints, and the second one can be rewritten w.r.t the proximal operator. #linebreak()
   Here, $rho$ controls the tradeoff between enforcing $psi$/$phi$ and staying close to the current point.
-
+  #pause
   We can thus solve these two problems independently using the most adequate method for each, justifying the split !
 ]
 
@@ -58,7 +59,7 @@
     $
       mat(E, G^T; G, 0) mat(w; lambda) = mat(-f; h).
     $
-
+  #pause
   The second subproblem separates across time : 
 
     $
