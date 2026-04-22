@@ -32,14 +32,14 @@
 
 ]
 
-#slide(title: "Time comparison")[
+#slide(title: "Performance comparison against C")[
   #figure(
 image("../figures/c_vs_julia_cold_total.png", width: 80%),
 caption: "Execution time of the algorithm for the different problems in the cold-start case."
 )
 ]
 
-#slide(title: "Time comparison proximal operator vs linear")[
+#slide(title: "Performance comparison against C", align: horizon)[
   #figure(
   grid(
     columns: 2,

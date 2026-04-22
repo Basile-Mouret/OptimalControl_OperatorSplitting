@@ -11,9 +11,9 @@
 	relative cost of the linear-system step versus the proximal step.
 
 
-        Future work : 
+        Possible extensions : 
+  - Using a native Julia linear solver
 	- Test on more examples
 	- Convergence-rate results
-        - Using a native Julia linear solver
 
 ]
