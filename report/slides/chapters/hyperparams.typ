@@ -5,13 +5,8 @@
     #grid(
       columns: 2,
       gutter: 1.2em,
-      image("../figures/iterations_vs_reg.png", width: 70%),
-      image("../figures/iterations_vs_rho.png", width: 70%),
-      grid.cell(colspan: 2)[
-        #align(center)[
-          #image("../figures/iterations_vs_alpha.png", width: 40%)
-        ]
-      ],
+      image("../figures/iterations_vs_alpha.png"),
+      image("../figures/iterations_vs_rho.png"),
     )
   ]
 ]
